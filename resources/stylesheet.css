@@ -1,0 +1,104 @@
+/*  BMD REST API Tutorial Stylesheet  */
+/* (c) 2024 Dylan Speiser, GNU GPL v3 */
+
+/* Load NotoSansDisplay Font from resources
+@font-face {
+    font-family: 'Noto Sans Display';
+    src: url('NotoSansDisplay-VariableFont_wdth\,wght.woff') format('woff'), 
+         url('NotoSansDisplay-VariableFont_wdth\,wght.ttf') format('truetype');
+} */
+
+/* Font Nonsense */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100..900;1,100..900&display=swap');
+
+.noto-sans-display {
+  font-family: "Noto Sans Display", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings:
+    "wdth" 100;
+}
+
+/* Styles for the whole body */
+body {
+    background-color: #181818;
+    color: white;
+    margin: 0px;
+}
+
+md-block {
+    width: 60vw;
+    margin: 1vh 20vw;
+    display: block;
+}
+
+/* Change margins if we're on a thin screen */
+@media screen and (max-width: 850px) {
+    md-block {
+        width: 90vw;
+        margin: 1vh 5vw;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    body {
+        font-size: 90%;
+    }
+
+    img {
+        width: 15vw;
+    }
+}
+
+/* Divs */
+div {
+    display: flex;
+    justify-items: center;
+    justify-content: space-around;
+    align-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* ===== INDIVIDUAL ELEMENTS ===== */
+header {
+    display: flex;
+    align-content: center;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid black;
+    padding: 0px 3vw;
+    background: linear-gradient(0deg, #181818 0%, #242424 100%);
+}
+
+#PrevNextBox {
+    display: flex;
+    align-content: center;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid black;
+    padding: 1vh 2vw;
+    background: #222222;
+}
+
+#PrevNextBox a {
+    color: #474747;
+    text-decoration: none;
+}
+
+footer {
+    min-height: 10vh;
+}
+
+/* Links */
+a {
+    color: cornflowerblue;
+    font-weight: 500;
+}
+
+/* Code Blocks */
+pre:has(code) {
+    background-color: #0f0f0f !important;
+    border-radius: 5px;
+}
