@@ -98,7 +98,7 @@
         ```JS
         function sendGETRequest(endpoint) {
             // Put the camera's API address in a constant
-            const cameraAPIAddress = "http://studio-camera-6k-pro.local/control/api/v1";
+            const cameraAPIAddress = "http://studio-camera-6k-pro.local/control/api/v1";    // Remember to change this for YOUR camera's API address
 
             // Instantiate the XMLHttpRequest object
             let xhr = new XMLHttpRequest();
@@ -157,10 +157,10 @@
         import requests
 
         # Store the API Address
-        cameraAPIAddress = "http://Studio-Camera-6K-Pro.local/control/api/v1"
+        cameraAPIAddress = "http://Studio-Camera-6K-Pro.local/control/api/v1"    # Remember to change this for YOUR camera's API address
 
         # Send the request
-        response = requests.request("GET", cameraAPIAddress+"/lens/iris")
+        response = requests.get(cameraAPIAddress+"/lens/iris")
 
         # Print the response
         print(response.text)
@@ -174,10 +174,10 @@
 
         def sendGETRequest(endpoint):
             # Store the API Address
-            cameraAPIAddress = "http://Studio-Camera-6K-Pro.local/control/api/v1"
+            cameraAPIAddress = "http://Studio-Camera-6K-Pro.local/control/api/v1"    # Remember to change this for YOUR camera's API address
 
             # Send the request
-            response = requests.request("GET", cameraAPIAddress+endpoint)
+            response = requests.get(cameraAPIAddress+endpoint)
 
             # Handle errors and return
             if (response.status_code < 300): 
@@ -194,6 +194,8 @@
         cameraData = {}                                         # Make a new dict called cameraData
         cameraData["iris"] = sendGETRequest("/lens/iris")       # Store the iris data in a key called "iris"
         ```
+
+        In the next article, we'll start sending commands _to_ the camera so that we can change settings!
 
         ## Aside: OpenAPI
 

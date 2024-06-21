@@ -39,16 +39,199 @@
         <!-- Next/Previous Page Items -->
         <div id="PrevNextBox">
             <a href="2-JSON-Data.html">< Previous Page</a>
-            <a href="#">Next Page ></a>
+            <a href="4-Conducting-an-Orchestra.html">Next Page ></a>
         </div>
         
         <!-- Parse page content from markdown -->
         <md-block>
         # 3. PUT Requests
+
+        It's finally time to send some commands to the camera. A super simple one is `PUT /lens/focus/doAutoFocus`, but how do we send a `PUT` command?
+
+        ## doAutoFocus
+
+        ### JavaScript
+
+        We can take our sendGETRequest function from before and modify it into a sendPUTRequest function. Let's see it:
+
+        ```JS
+        function sendPUTRequest(endpoint, data) {
+            // Put the camera's API address in a constant
+            const cameraAPIAddress = "http://studio-camera-6k-pro.local/control/api/v1";    // Remember to change this for YOUR camera's API address
+
+            // Instantiate the XMLHttpRequest object
+            let xhr = new XMLHttpRequest();
+
+            // Create an object to store and return the response
+            var responseObject = {};
+
+            // Define the onload function
+            xhr.onload = function() {
+                if (this.status < 300) {                            // If the operation is successful
+                    if (this.responseText)
+                        responseObject = JSON.parse(this.responseText);     // Give the data to the responseObject
+                    responseObject.status = this.status;                // Also pass along the status code for error handling
+                } else {                                            // If there has been an error
+                    responseObject = this;                              // Give the XMLHttpRequest data to the responseObject
+                    console.error("Error ", this.status, ": ", this.statusText);    // Log the error in the console
+                }
+            };
+
+            // Open the connection
+            // The "false" here specifies that we want to wait for the response to come back before returning from xhr.send()
+            xhr.open("PUT", cameraAPIAddress+endpoint, false);
+
+            // Send the request with data
+            xhr.send(data);
+
+            // Return response data
+            return responseObject;
+        }
+        ```
+
+        Notice the new parameter, `data`. We can pass a JSON object into this parameter that will get sent to the camera for commands
+        that require data values.
+
+        `PUT /lens/focus/doAutoFocus` doesn't have any data, though, so we can call the function and pass an empty JSON Object in for the `data` argument, like so:
+
+        ```JS
+        sendPUTRequest("/lens/focus/doAutoFocus","{}");
+        ```
+
+        The camera usually responds to `PUT` requests with `204: No Content`, so there will be no JSON data to parse from the responseText.
+        That is why we had to add the line `if (this.responseText)` to the code. Even though the function only returns `{"status": 204}`, if you look at
+        the camera feed as you send the command, you can catch the camera auto-focusing!
+
+        > **Note:** Any lens control commands will require a lens with electronic control pins that connect to the camera. Many lenses, especially ones
+        > designed for cinema cameras, do not have these electronic connections, and so will not work with the API.
+        
+        ### Python
+
+        Just like the JavaScript, we can modify our sendGETRequest function into a sendPUTRequest one. The Python version looks like:
+
+        ```Python
+        import requests
+
+        def sendPUTRequest(endpoint, data):
+            # Store the API Address
+            cameraAPIAddress = "http://Studio-Camera-6K-Pro.local/control/api/v1"    # Remember to change this for YOUR camera's API address
+
+            # Send the request
+            response = requests.put(cameraAPIAddress+endpoint, json=data)
+
+            # Handle errors and return
+            return response
+        ```
+
+        Because the camera doesn't return any data on a successful `PUT`, we can just return the `response` object and leave the error handling for later.
+        Let's run this now with the `doAutoFocus` endpoint and empty `dict` object in the data argument:
+
+        ```python
+        sendPUTRequest("/lens/focus/doAutoFocus", {})
+        ```
+
+        And we get a response object as a return value, that when running in interactive mode shows up as `&lt;Response [204]&gt;`. Hopefully, the camera did the auto focus too.
+
+        ## ISO
+
+        So we've gotten the camera to auto focus, but what about a PUT request that has some data, like changing the ISO? Consulting the documentation, we can see that a
+        `PUT /video/iso` API call will have one integer parameter named `'iso'`. Here's how we can send a command to change the ISO in both JS and Python using our sendPUTRequest functions:
+
+        ```JavaScript
+        sendPUTRequest("/video/iso", "{\"iso\": 1600}");                // Set the ISO to 1600
+        sendPUTRequest("/video/iso", JSON.stringify({iso: 1600}));      // Alternate way of passing JSON to data argument
+        ```
+
+        > (XMLHttpRequest.send(data) takes the JSON data as a string, and the way we wrote our sendPUTRequest function does not convert the argument to a string automatically.
+        That is why we must either use `\"` to add quotes within a string we pass to the function or call `JSON.stringify()`)
+
+        ```Python
+        sendPUTRequest("/video/iso", {'iso': 3200})                     # Set the ISO to 3200
+        ```
+
+        Now that we know how to send JSON data to specific endpoints, let's try changing some other settings!
+
+        ## White Balance
+
+        White Balance is another easy setting to change, since it is just one value. We can do it like this:
+
+        ```JavaScript
+        sendPUTRequest("/video/whiteBalance", "{\"whiteBalance\": 3200}");                // Set WB to 3200K
+        ```
+
+        ```Python
+        sendPUTRequest("/video/whiteBalance", {'whiteBalance': 5600})                     # Set WB to 5600K
+        ```
+
+        ## Iris
+        
+        The iris data from the camera is more complex than just one number. Do we want to set a specific f-stop? Do we want to set it as a percentage of fully open/closed?
+        The API allows us to send a `PUT` request with just one of these values, and it will interpret it for us.
+
+        If we want to set the iris to exactly f/8, we can do that with our JavaScript function like this:
+
+        ```JavaScript
+        sendPUTRequest("/lens/iris", "{\"apertureStop\": 8}");                // Set iris to f/8
+        ```
+
+        If we want to open the iris as much as possible, wait one second, and then fully close it, we can do it (shown in Python) like this:
+
+        ```Python
+        sendPUTRequest("/lens/iris", {'normalised': 0})                     # Fully open iris
+        time.sleep(1)
+        sendPUTRequest("/lens/iris", {'normalised': 1})                     # Fully close iris
+        ```
+
+        ## Record
+
+        Now this is a setting that you'll find useful. The camera's current recording state can be `GET` and `PUT` at the endpoint `/transports/0/record`. Looking
+        at the documentation, the `PUT /transports/0/record` command has an extra parameter: a name for the new clip. That's really cool, since that is only
+        possibly by using this API. Let's write JavaScript and Python functions to toggle the recording state of the camera and set a custom file name:
+
+        ```JS
+        function toggleRecord(filename="") {
+            // First, get whether or not the camera is recording right now
+            var recordingState = sendGETRequest("/transports/0/record");
+        
+            // Boolean invert the recording state
+            recordingState.recording = !recordingState.recording;
+        
+            // If a file name was specified, add that to the dict as "clipName"
+            if (filename) {
+                recordingState.clipName = filename;
+            }
+        
+            // PUT the data back on the camera
+            sendPUTRequest("/transports/0/record",JSON.stringify(recordingState));
+        }
+        ```
+
+        ```Python
+        def toggleRecord(filename=""):
+            # First, get whether or not the camera is recording right now
+            recordingState = sendGETRequest("/transports/0/record")
+        
+            # Boolean invert the recording state
+            recordingState["recording"] = not (recordingState["recording"])
+        
+            # If a file name was specified, add that to the dict as "clipName"
+            if (len(filename) > 0):
+                recordingState["clipName"] = filename
+        
+            # PUT the data back on the camera
+            sendPUTRequest("/transports/0/record",recordingState)
+        ```
+
+        Try it out! Now that you know how to `GET` data, modify the `dict` and JSON data, and `PUT` it back on the camera, try writing your own functions and scripts
+        to control the settings you want! The possibilities are literally endless.
+
+        Some endpoints in the API specify that they use the `POST` method. If that's one of the settings you care about, write a sendPOSTRequest function.
+
+        In the next article, we'll organize all this data and these functions, allowing control of _multiple_ devices! Let's go!
         
         </md-block>
 
-        <div><a href="#" style="text-align: center;">Next Article</a></div>
+        <div><a href="4-Conducting-an-Orchestra.html" style="text-align: center;">Next Article</a></div>
 
         <!-- Footer -->
         <footer>
