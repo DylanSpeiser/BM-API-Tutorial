@@ -39,15 +39,15 @@ md-block {
         width: 90vw;
         margin: 1vh 5vw;
     }
-}
 
-@media screen and (max-width: 600px) {
     body {
         font-size: 90%;
     }
+}
 
+@media screen and (max-width: 600px) {
     img {
-        width: 15vw;
+        max-width: 150vw;
     }
 }
 
@@ -83,7 +83,7 @@ header {
 }
 
 #PrevNextBox a {
-    color: #474747;
+    color: #aaaaaa;
     text-decoration: none;
 }
 
@@ -101,4 +101,8 @@ a {
 pre:has(code) {
     background-color: #0f0f0f !important;
     border-radius: 5px;
+}
+
+code {
+    font-size: larger;
 }
