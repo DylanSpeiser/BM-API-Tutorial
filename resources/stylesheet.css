@@ -97,6 +97,11 @@ a {
     font-weight: 500;
 }
 
+h1 a {
+    color: white;
+    text-decoration: none;
+}
+
 /* Code Blocks */
 pre:has(code) {
     background-color: #0f0f0f !important;

@@ -1,7 +1,7 @@
-<!-- Blackmagic REST API Tutorial -->
-<!--   Episode 1: Rest API Calls  -->
-<!--    (c) 2024 Dylan Speiser    -->
-<!--   Licensed under GNU GPL v3  -->
+<!--    Blackmagic REST API Tutorial    -->
+<!-- Episode 4: Conducting an Orchestra -->
+<!--       (c) 2024 Dylan Speiser       -->
+<!--      Licensed under GNU GPL v3     -->
 
 <!DOCTYPE html>
 <html>
@@ -32,14 +32,14 @@
 
         <!-- Header Block, same for every page -->
         <header>
-            <h1>Blackmagic REST API Tutorials</h1>
+            <h1><a href="index.html">Blackmagic REST API Tutorials</a></h1>
             <a href="https://github.com/DylanSpeiser/BM-API-Tutorial">GitHub</a>
         </header>
 
         <!-- Next/Previous Page Items -->
         <div id="PrevNextBox">
             <a href="3-PUT-Requests.html">< Previous Page</a>
-            <a href="#">Next Page ></a>
+            <a href="5-Media-Management.html">Next Page ></a>
         </div>
         
         <!-- Parse page content from markdown -->
@@ -47,11 +47,509 @@
         # 4. Conducting an Orchestra
 
         Welcome back! In this article, we'll talk about ways to organize the data and API calling functions for _multiple_ devices! We'll talk about
-        object-oriented programming, how to write classes in JavaScript and Python, and get a sneak peak at how to perform these actions from a user interface. Let's go!
+        object-oriented programming, how to write classes, and even control other Blackmagic devices in addition to cameras. Let's go!
+
+        ## Object-Oriented Programming
+
+        Object-Oriented Programming (OOP) is a paradigm used in Computer Science for programs that associate certain data and functions with a **class**, which is comparable to a
+        template or a blueprint. Classes define what properties and behaviors an object can have, and when the program runs, we create **instances** of that class which have their
+        own data but use it in the same way.
+
+        A good example of OOP is what we'll be implementing here. We will make a class that represents a camera, and it will hold all of the relevant data for that camera such as its
+        hostname and settings we fetch. The class we make will have methods that will send commands to the camera to fetch or push data from/to the camera. 
+        
+        Implementing this functionality with OOP will allow us to keep the code more organized and reusable than if we had to write independent functions for everything. From here
+        on out, I'll assume that you have a basic idea of classes, objects, and instances in your programming language of choice. If you're working in JavaScript along
+        with me, you should be able to get the basic understanding from the examples below. For my sanity, I'll only be working in JS from here on out, but know that
+        everything I show here will have an equivalent in Python, if that's what you're using. Without further adieu, let's go!
+
+        ## Classes and Methods
+
+        In a new JavaScript file (I'm in `examples/Camera.js`), we'll declare a new class called `Camera` like so:
+
+        ```JS
+        class Camera {
+    
+        }
+        ```
+
+        For now, let's store some basic information about the camera in class fields. These fields can be different
+        for each `Camera` object we instantiate.
+
+        ```JS
+        class Camera {
+            // Keep track of the camera's hostname and API address
+            hostname;
+            APIAddress;
+        }
+        ```
+
+        When we make a new `Camera` object, we want to make sure these values are set correctly. Since objects are
+        instantiated with the class's constructor, we can add the constructor like so:
+
+        ```JS
+        constructor(hostname) {
+            this.hostname = hostname;
+            this.APIAddress = "http://"+hostname+"/control/api/v1";
+        }
+        ```
+
+        The `this` keyword is important here. `this.hostname` refers to the `hostname` field of the instance being instantiated
+        by the constructor. `this` will show up a _lot_ when writing class methods in JavaScript.
+
+        Next, we want to give this class the ability to talk to the camera. I'll take our `sendGETRequest` and `sendPUTRequest`
+        functions from earlier and transform them into methods for the camera class that make use of the API address we have stored.
+
+        Adding those methods, our `Camera` class now looks like this:
+
+        ```JS
+        class Camera {
+            // Keep track of the camera's hostname and API address
+            hostname;
+            APIAddress;
+        
+            // Constructor takes hostname as an argument and sets the
+            // hostname and APIAddress fields accordingly
+            constructor(hostname) {
+                this.hostname = hostname;
+                this.APIAddress = "http://"+hostname+"/control/api/v1";
+            }
+        
+            // Returns a JSON Object of data we got from the camera
+            GETdata(endpoint) {
+                // Instantiate the XMLHttpRequest object
+                let xhr = new XMLHttpRequest();
+            
+                // Create an object to store and return the response
+                var responseObject;
+            
+                // Define the onload function
+                xhr.onload = function() {
+                    if (this.status < 300) {                            // If the operation is successful
+                        responseObject = JSON.parse(this.responseText);     // Give the data to the responseObject
+                        responseObject.status = this.status;                // Also pass along the status code for error handling
+                    } else {                                            // If there has been an error
+                        responseObject = this;                              // Give the XMLHttpRequest data to the responseObject
+                        console.error("Error ", this.status, ": ", this.statusText);    // Log the error in the console
+                    }
+                };
+            
+                // Open the connection
+                // The "false" here specifies that we want to wait for the response to come back before returning from xhr.send()
+                xhr.open("GET", this.APIAddress+endpoint, false);
+            
+                // Send the request
+                xhr.send();
+            
+                // Return the data
+                return responseObject;
+            }
+        
+            // Send JSON Object data to the camera
+            PUTdata(endpoint, data) {
+                // Instantiate the XMLHttpRequest object
+                let xhr = new XMLHttpRequest();
+            
+                // Create an object to store and return the response
+                var responseObject = {};
+            
+                // Define the onload function
+                xhr.onload = function() {
+                    if (this.status < 300) {                            // If the operation is successful
+                        if (this.responseText)
+                            responseObject = JSON.parse(this.responseText);     // Give the data to the responseObject
+                        responseObject.status = this.status;                // Also pass along the status code for error handling
+                    } else {                                            // If there has been an error
+                        responseObject = this;                              // Give the XMLHttpRequest data to the responseObject
+                        console.error("Error ", this.status, ": ", this.statusText);    // Log the error in the console
+                    }
+                };
+            
+                // Open the connection
+                // The "false" here specifies that we want to wait for the response to come back before returning from xhr.send()
+                xhr.open("PUT", this.APIAddress+endpoint, false);
+            
+                // Send the request with data
+                xhr.send(JSON.stringify(data));
+            
+                // Return response data
+                return responseObject;
+            }
+        }
+        ```
+
+        Notice that these methods are not so different from the functions we wrote before. The main difference between them is
+        that instead of using the API address we declared as a constant, it uses the stored API address of the camera that calls it.
+        I've also changed the `PUTdata` method to send `JSON.stringify(data)` rather than just `data` so that we don't have to stringify
+        data when we pass it as an argument.
+        
+        Loading up this class file, we can make a new `Camera` object named `testCamera` and get some data from it like so:
+
+        ```JS
+        var testCamera = new Camera("Studio-Camera-6K-Pro.local");   // Remember to change this to YOUR camera's hostname!
+
+        console.log(testCamera.GETdata("/video/iso"));
+        ```
+
+        ```
+        Output:
+        {iso: 3200, status: 200}
+        ```
+
+        Success! Now let's try changing a setting.
+
+        ```JS
+        var testCamera = new Camera("Studio-Camera-6K-Pro.local");   // Remember to change this to YOUR camera's hostname!
+
+        console.log(testCamera.GETdata("/video/whiteBalance"));
+        testCamera.PUTdata("/video/whiteBalance",{whiteBalance: 3200});
+        console.log(testCamera.GETdata("/video/whiteBalance"));
+        ```
+
+        ```
+        Output:
+        {whiteBalance: 5600, status: 200}
+        {whiteBalance: 3200, status: 200}
+        ```
+
+        Awesome! We've made it super simple to change settings using methods and class fields. It's now trivial to store
+        information about the camera's settings within the object. To do that, we can use dot notation to reference instance 
+        fields whether or not they already exist. For example:
+
+        ```JS
+        testCamera.ISO = testCamera.GETdata("/video/iso").iso
+        ```
+
+        This line of code sets the `ISO` field of the `testCamera` instance of the `Camera` class to whatever `iso` value we receive
+        from the camera.
+
+        We can write complex methods using this data very easily, like setting white balance based on a preset:
+
+        ```JS
+        // Sets the white balance and tint based on the following preset:
+        // 0: Sunlight, 1: Tungsten, 2: Fluorescent, 3: Shade, 4: Cloudy
+        // Any other value will not affect the WB setting
+        setWhiteBalancePreset(presetIndex) {
+            var newWhiteBalance;
+            var newWhiteBalanceTint;
+            
+            switch (presetIndex) {
+                case 0:
+                    // Sunlight
+                    newWhiteBalance = 5600;
+                    newWhiteBalanceTint = 10;
+                    break;
+                case 1:
+                    // Tungsten
+                    newWhiteBalance = 3200;
+                    newWhiteBalanceTint = 0;
+                    break;
+                case 2:
+                    // Fluorescent
+                    newWhiteBalance = 4000;
+                    newWhiteBalanceTint = 15;
+                    break;
+                case 3:
+                    // Shade
+                    newWhiteBalance = 4500;
+                    newWhiteBalanceTint = 15;
+                    break;
+                case 4:
+                    // Cloudy
+                    newWhiteBalance = 6500;
+                    newWhiteBalanceTint = 10;
+                    break;
+                default:
+                    // If any other value is set, don't change anything
+                    newWhiteBalance = this.GETdata("/video/whiteBalance").whiteBalance;
+                    newWhiteBalanceTint = this.GETdata("/video/whiteBalanceTint").whiteBalanceTint;
+            }
+    
+            this.PUTdata("/video/whiteBalance",{whiteBalance: newWhiteBalance});
+            this.PUTdata("/video/whiteBalanceTint",{whiteBalanceTint: newWhiteBalanceTint});
+        }
+        ```
+
+        How about getting almost all of the camera data in a single line of code?
+
+        ```JS
+        testCamera.GETdata("/event/list").forEach((str) => testCamera[str] = testCamera.GETdata(str));
+        ```
+
+        or, as a method:
+
+        ```JS
+        // Uses the endpoints from calling "/event/list" to populate the object with data
+        // Not all data is included, such as anything from the "/video" endpoints, but much of it is.
+        GETdataFromEventList() {
+            // The "/event/list" endpoint will return an array of endpoints we can query for their status
+            var eventStrings = this.GETdata("/event/list");
+
+            // For each of the strings, set the corresponding field in this object to the camera's current status for that field
+            eventStrings.forEach((str) => {
+                // Get data from the camera
+                var responseData = this.GETdata(str);
+
+                // Remove the "status" key from the response
+                delete responseData["status"];
+
+                // Set corresponding field
+                this[str] = responseData;
+            });
+        }
+        ```
+
+        This specific method is error-prone and doesn't get _all_ of the data from the camera, but I include it here as an example of
+        using and modifying data on the camera in a programmatic way.
+
+        Remember that `GETdata` returns the JSON data from the camera _with the addition of_ the HTTP status code of the request
+        in a `status` value. Unless you want to store the status of the request with the data, I'd advise removing it from the JSON
+        object before storing it, as I did in the method above. This makes programming methods that modify and/or send the data back to the camera much easier.
+
+        You could also modify `GETdata` to not even include the status in the responseObject, which would require different error handling. Since we aren't doing
+        any error handling in this tutorial (handling HTTP request errors in JavaScript is beyond its scope), you can choose whether to remove or keep it.
+
+        ## Multiple Cameras
+
+        Because the data and methods for each camera instance is independent, we can make multiple `Camera` instances and control them all
+        independently. That's why I've named this article "Conducting an Orchestra". Let's see an example making two camera objects and changing
+        settings on both of them:
+
+        ```JS
+        var camera1 = new Camera("Studio-Camera-6K-Pro.local");             // Remember to change these!
+        var camera2 = new Camera("Blackmagic-Cinema-Camera-6K.local");
+
+        camera1.setWhiteBalancePreset(0);
+        camera2.setWhiteBalancePreset(0);
+        ```
+
+        Notice that the cameras need not be the same model for this to work. This opens up some awesome capabilities for synchronizing color correction, white balance,
+        or even multi-cam recording!
+
+        If we add this method to the Camera class:
+
+        ```JS
+        // This function will make the camera record
+        // If the optional parameter is set to false, it will stop recording 
+        record(state = true) {
+            this.PUTdata("/transports/0/record",{recording: state});
+        }
+        ```
+
+        Then, we can run a script like this to make all of our cameras record at the same time!
+
+        ```JS
+        // Make an array to hold all our camera objects
+        var cameras = [new Camera("Studio-Camera-6K-Pro.local"), new Camera("Blackmagic-Cinema-Camera-6K.local")]             // Remember to change these!
+
+        // Tell all of them to record
+        cameras.forEach((cam) => cam.record());
+        ```
+
+        ## HyperDecks Can Do It Too
+
+        Cameras aren't the only Blackmagic device that support the REST API. In fact, devices that use the REST API
+        use many of the same endpoints. Basic functions like record, play, stop, all work the same between product types. 
+        Some endpoints might return differently between products or return a `501: Not implemented` error, so make sure to test it out.
+
+        > Remember that networking functionality must be enabled in the setup utility for all of the devices you're using!
+
+        We can refactor our `Camera` class into a `BMDevice` class with minimal modifications:
+
+        ```JS
+        // examples/BMDevice.js
+
+        class BMDevice {
+            // Keep track of the device's hostname and API address
+            hostname;
+            APIAddress;
+        
+            // Constructor takes hostname as an argument and sets the
+            // hostname and APIAddress fields accordingly
+            constructor(hostname) {
+                this.hostname = hostname;
+                this.APIAddress = "http://"+hostname+"/control/api/v1";
+            }
+        
+            // Returns a JSON Object of data we got from the device
+            GETdata(endpoint) {
+                // Instantiate the XMLHttpRequest object
+                let xhr = new XMLHttpRequest();
+            
+                // Create an object to store and return the response
+                var responseObject;
+            
+                // Define the onload function
+                xhr.onload = function() {
+                    if (this.status < 300) {                            // If the operation is successful
+                        responseObject = JSON.parse(this.responseText);     // Give the data to the responseObject
+                        responseObject.status = this.status;                // Also pass along the status code for error handling
+                    } else {                                            // If there has been an error
+                        responseObject = this;                              // Give the XMLHttpRequest data to the responseObject
+                        console.error("Error ", this.status, ": ", this.statusText);    // Log the error in the console
+                    }
+                };
+            
+                // Open the connection
+                // The "false" here specifies that we want to wait for the response to come back before returning from xhr.send()
+                xhr.open("GET", this.APIAddress+endpoint, false);
+            
+                // Send the request
+                xhr.send();
+            
+                // Return the data
+                return responseObject;
+            }
+        
+            // Send JSON Object data to the device
+            PUTdata(endpoint, data) {
+                // Instantiate the XMLHttpRequest object
+                let xhr = new XMLHttpRequest();
+            
+                // Create an object to store and return the response
+                var responseObject = {};
+            
+                // Define the onload function
+                xhr.onload = function() {
+                    if (this.status < 300) {                            // If the operation is successful
+                        if (this.responseText)
+                            responseObject = JSON.parse(this.responseText);     // Give the data to the responseObject
+                        responseObject.status = this.status;                // Also pass along the status code for error handling
+                    } else {                                            // If there has been an error
+                        responseObject = this;                              // Give the XMLHttpRequest data to the responseObject
+                        console.error("Error ", this.status, ": ", this.statusText);    // Log the error in the console
+                    }
+                };
+            
+                // Open the connection
+                // The "false" here specifies that we want to wait for the response to come back before returning from xhr.send()
+                xhr.open("PUT", this.APIAddress+endpoint, false);
+            
+                // Send the request with data
+                xhr.send(JSON.stringify(data));
+            
+                // Return response data
+                return responseObject;
+            }
+        
+            // Uses the endpoints from calling "/event/list" to populate the object with data
+            // Not all data is included, such as anything from the "/video" endpoints, but much of it is.
+            GETdataFromEventList() {
+                // The "/event/list" endpoint will return an array of endpoints we can query for their status
+                var eventStrings = this.GETdata("/event/list");
+        
+                // For each of the strings, set the corresponding field in this object to the device's current status for that field
+                eventStrings.forEach((str) => {
+                    // Get data from the device
+                    var responseData = this.GETdata(str);
+        
+                    // Remove the "status" key from the response
+                    delete responseData["status"];
+        
+                    // Set corresponding field
+                    this[str] = responseData;
+                });
+            }
+        
+            // This function will make the device record
+            // If the optional parameter is set to false, it will stop recording 
+            record(state = true) {
+                this.PUTdata("/transports/0/record",{recording: state});
+            }
+        }
+        ```
+
+        This is a good time to talk about class inheritance. Inheritance is a fundamental part of OOP, and is pretty simple to understand.
+        A class can inherit fields and methods from another class (called the "superclass"), and use them as just like its own fields and methods.
+        The subclass can also have its own unique functionality, specific to it. For example, a class representing a car might have
+        sedan, SUV, or station wagon subclasses that inherit the functionality from the car superclass while adding functions specific to their own models.
+
+        We'll do the same here with BMDevice and a _new_ `BMCamera` subclass. Since our white balance setting function only makes sense for cameras, we'll put
+        that into our `BMCamera` class as well:
+
+        ```JS
+        class BMCamera extends BMDevice {
+            // Child class constructor
+            // Just passing the hostname to the superclass's constructor
+            constructor(hostname) {
+                super(hostname);
+            }
+        
+            // Sets the white balance and tint based on the following preset:
+            // 0: Sunlight, 1: Tungsten, 2: Fluorescent, 3: Shade, 4: Cloudy
+            // Any other value will not affect the WB setting
+            setWhiteBalancePreset(presetIndex) {
+                var newWhiteBalance;
+                var newWhiteBalanceTint;
+                
+                switch (presetIndex) {
+                    case 0:
+                        // Sunlight
+                        newWhiteBalance = 5600;
+                        newWhiteBalanceTint = 10;
+                        break;
+                    case 1:
+                        // Tungsten
+                        newWhiteBalance = 3200;
+                        newWhiteBalanceTint = 0;
+                        break;
+                    case 2:
+                        // Fluorescent
+                        newWhiteBalance = 4000;
+                        newWhiteBalanceTint = 15;
+                        break;
+                    case 3:
+                        // Shade
+                        newWhiteBalance = 4500;
+                        newWhiteBalanceTint = 15;
+                        break;
+                    case 4:
+                        // Cloudy
+                        newWhiteBalance = 6500;
+                        newWhiteBalanceTint = 10;
+                        break;
+                    default:
+                        // If any other value is set, don't change anything
+                        newWhiteBalance = this.GETdata("/video/whiteBalance").whiteBalance;
+                        newWhiteBalanceTint = this.GETdata("/video/whiteBalanceTint").whiteBalanceTint;
+                }
+        
+                this.PUTdata("/video/whiteBalance",{whiteBalance: newWhiteBalance});
+                this.PUTdata("/video/whiteBalanceTint",{whiteBalanceTint: newWhiteBalanceTint});
+            }
+        }
+        ```
+
+        Let's put it _all_ together and write a script that records in BRAW on the Studio Camera and H.264 on the HyperDeck
+        at the same time:
+
+        ```JS
+        // Instantiate Device Objects
+        var camera = new BMCamera("Studio-Camera-6K-Pro.local");
+        var hyperDeck = new BMDevice("HyperDeck-Extreme-8K-HDR.local");
+    
+        // Set formats
+        var newCameraFormat = {"codec": "BRaw:Q3","frameRate": "24","offSpeedEnabled": false,"recordResolution": {"height": 2160,"width": 3840},"sensorResolution": {"height": 2160,"width": 3840}}
+        var newHyperDeckFormat = {"codec": "H264:Medium","container": "MP4"};
+    
+        camera.PUTdata("/system/format", newCameraFormat);
+        hyperDeck.PUTdata("/system/codecFormat",newHyperDeckFormat);
+    
+        // Tell them to record
+        camera.record();
+        hyperDeck.record();
+        ```
+
+        This is _super_ useful, and having this level of control over the equipment that can be tied in to
+        all the features of flexible programming languages like JavaScript and Python means that the
+        possibilities are literally endless.
+
+        In the next article, we'll talk about how you can get media on and off of the devices.
+        Of course, we'll do it completely over the network. See you there!
 
         </md-block>
 
-        <div><a href="#" style="text-align: center;">Next Article</a></div>
+        <div><a href="5-Media-Management.html" style="text-align: center;">Next Article</a></div>
 
         <!-- Footer -->
         <footer>
