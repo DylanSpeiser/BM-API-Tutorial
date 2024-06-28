@@ -89,10 +89,10 @@
         }
         ```
 
-        Notice the new parameter, `data`. We can pass a JSON object into this parameter that will get sent to the camera for commands
+        Notice the new parameter, `data`. We can pass a JSON string into this parameter that will get sent to the camera for commands
         that require data values.
 
-        `PUT /lens/focus/doAutoFocus` doesn't have any data, though, so we can call the function and pass an empty JSON Object in for the `data` argument, like so:
+        `PUT /lens/focus/doAutoFocus` doesn't have any data, though, so we can call the function and pass the string for an empty JSON Object in for the `data` argument, like so:
 
         ```JS
         sendPUTRequest("/lens/focus/doAutoFocus","{}");
@@ -185,8 +185,8 @@
         ## Record
 
         Now this is a setting that you'll find useful. The camera's current recording state can be `GET` and `PUT` at the endpoint `/transports/0/record`. Looking
-        at the documentation, the `PUT /transports/0/record` command has an extra parameter: a name for the new clip. That's really cool, since that is only
-        possibly by using this API. Let's write JavaScript and Python functions to toggle the recording state of the camera and set a custom file name:
+        at the documentation, the `PUT /transports/0/record` command has an extra parameter: a name for the new clip. Let's write JavaScript and Python functions
+        to toggle the recording state of the camera and set a custom file name:
 
         ```JS
         function toggleRecord(filename="") {
@@ -196,7 +196,7 @@
             // Boolean invert the recording state
             recordingState.recording = !recordingState.recording;
         
-            // If a file name was specified, add that to the dict as "clipName"
+            // If a file name was specified, add that to the state object as "clipName"
             if (filename) {
                 recordingState.clipName = filename;
             }
@@ -227,7 +227,7 @@
 
         Some endpoints in the API specify that they use the `POST` method. If that's one of the settings you care about, write a sendPOSTRequest function.
 
-        In the next article, we'll organize all this data and these functions, allowing control of _multiple_ devices! Let's go!
+        In the next article, we'll organize all of this data and these functions, allowing control of _multiple_ devices! Let's go!
         
         </md-block>
 

@@ -46,7 +46,49 @@
         <md-block>
         # 5. Media Management
 
-        Welcome back! 
+        Welcome back! Now that we're controlling our devices over the network, it's time
+        to see what we've recorded and get media from the camera and HyperDeck. But, since
+        taking the physical media from the camera might be inconvenient or impossible, let's
+        download it to our computer over the network.
+
+        ## Web Media Manager
+
+        If you noticed, in **Blackmagic Camera Setup** and **Blackmagic HyperDeck Setup**, we enabled
+        the "Web Media Manager" and there is a URL listed for it. If we open this in our browser
+        (which is okay to do even if the browser complains about security), we see the following:
+
+        <img src="" alt="Web Media Manager screenshot">
+
+        Using this web page, which is hosted on the device itself, we can download, upload, and organize media
+        on any of the device's connected drives from any computer on the network. It's really convenient to download
+        camera originals without having to move any cards or drives, all on your local network without being impacted by
+        internet speeds which might have slowed down a transfer over the cloud.
+
+        ## SMB
+
+        For even more file-transfer and file-organizing power, we can access a Camera or HyperDeck's contents over SMB.
+        SMB is Windows's native network file sharing protocol, and it is supported by Linux and macOS as well. To connect to
+        a Blackmagic device over SMB, follow [instructions for connecting to an SMB server](https://knowledgebase.45drives.com/kb/kb450446-connecting-to-smb-share-on-windows-and-macos/).
+        The devices might even show up in File Explorer or Finder automatically, making the process even easier.
+
+        If prompted for a login, just connect as a guest. You can configure the security and login information in **Blackmagic Camera Setup**.
+
+        > username: `guest`<br>
+        > password: `guest`
+
+        ## FTP
+
+        FTP is another **F**ile **T**ransfer **P**rotocol. You can also connect with File Explorer or Finder, as well as dedicated FTP clients. Both FTP and SMB
+        come with pros and cons, as well as security considerations. **Do not** open or expose any network ports to the open internet without taking _additional_
+        security precautions. Open ports are scanned for all the time, and there is no security on BMD devices to stop bad actors from uploading malicious files to your
+        device or the rest of your network.
+
+        If you do want to access these files over the internet, consider solutions like a secure VPN connection to the network where your BMD devices are shared, or services like
+        Google Drive or Blackmagic Cloud that can securely sync files over the internet.
+
+        ## Transport and Media Control API Calls
+
+        ## HyperDeck Playlists
 
         </md-block>
 

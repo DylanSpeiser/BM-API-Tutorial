@@ -129,7 +129,7 @@
         ## The API
         
         The [Blackmagic REST API](https://documents.blackmagicdesign.com/DeveloperManuals/RESTAPIforBlackmagicCameras.pdf?_v=1696143610000) works by sending HTTP requests to the device.
-        Different types of requests are sent to different endpoints, similar to subpages of a website.
+        Different types of requests are sent to different endpoints, like subpages of a website.
 
         Each HTTP request a machine makes has a "method" that specifies what kind of request it is. The ones used by the BMD API are:
         -   `GET` &#9; (I'm asking you for some data)
@@ -177,7 +177,7 @@
         ```
 
         In English, these lines mean we are sending a `GET` HTTP request to `studio-camera-6k-pro.local` with endpoint `/control/api/v1/lens/iris`.
-        This endpoint is part of the API, and the camera should respond with details about the lens's aperture settings.
+        This endpoint is valid and part of the API, and the camera should respond with details about the lens's aperture settings.
 
         And, sure enough, the camera's response is exactly that. In the header, we see in the first line `200 OK`, which means that the request was successful.
         (For more information about HTTP status codes, see ["List of HTTP Status Codes" - Wikipedia](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes).)

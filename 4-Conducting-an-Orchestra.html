@@ -47,16 +47,16 @@
         # 4. Conducting an Orchestra
 
         Welcome back! In this article, we'll talk about ways to organize the data and API calling functions for _multiple_ devices! We'll talk about
-        object-oriented programming, how to write classes, and even control other Blackmagic devices in addition to cameras. Let's go!
+        object-oriented programming, how to write classes, and even control other Blackmagic devices in addition to cameras.
 
         ## Object-Oriented Programming
 
-        Object-Oriented Programming (OOP) is a paradigm used in Computer Science for programs that associate certain data and functions with a **class**, which is comparable to a
-        template or a blueprint. Classes define what properties and behaviors an object can have, and when the program runs, we create **instances** of that class which have their
-        own data but use it in the same way.
+        Object-Oriented Programming (OOP) is a paradigm used in Computer Science for programs that associate data and functions with **classes** and **objects**. Classes are comparable to a
+        template or a blueprint. They define what properties and behaviors an object can have, and when the program runs, we create **instances** of that class which store their data in the way
+        defined by the class.
 
         A good example of OOP is what we'll be implementing here. We will make a class that represents a camera, and it will hold all of the relevant data for that camera such as its
-        hostname and settings we fetch. The class we make will have methods that will send commands to the camera to fetch or push data from/to the camera. 
+        hostname and settings we fetch. The class we make will have methods that send commands to the camera to push or fetch data to/from the camera. 
         
         Implementing this functionality with OOP will allow us to keep the code more organized and reusable than if we had to write independent functions for everything. From here
         on out, I'll assume that you have a basic idea of classes, objects, and instances in your programming language of choice. If you're working in JavaScript along
@@ -73,7 +73,7 @@
         }
         ```
 
-        For now, let's store some basic information about the camera in class fields. These fields can be different
+        For now, let's store some basic information about the camera in class fields. These fields can have different values
         for each `Camera` object we instantiate.
 
         ```JS
@@ -94,7 +94,7 @@
         }
         ```
 
-        The `this` keyword is important here. `this.hostname` refers to the `hostname` field of the instance being instantiated
+        The `this` keyword is important here. `this.hostname` refers to the `hostname` field of the instance created
         by the constructor. `this` will show up a _lot_ when writing class methods in JavaScript.
 
         Next, we want to give this class the ability to talk to the camera. I'll take our `sendGETRequest` and `sendPUTRequest`
@@ -300,18 +300,18 @@
         ```
 
         This specific method is error-prone and doesn't get _all_ of the data from the camera, but I include it here as an example of
-        using and modifying data on the camera in a programmatic way.
+        using and modifying data from the camera in a programmatic way.
 
         Remember that `GETdata` returns the JSON data from the camera _with the addition of_ the HTTP status code of the request
-        in a `status` value. Unless you want to store the status of the request with the data, I'd advise removing it from the JSON
+        in a `status` value. Unless you want to store the status of the request with the data, I'd advise removing it from `GETData`'s returned JSON
         object before storing it, as I did in the method above. This makes programming methods that modify and/or send the data back to the camera much easier.
 
         You could also modify `GETdata` to not even include the status in the responseObject, which would require different error handling. Since we aren't doing
-        any error handling in this tutorial (handling HTTP request errors in JavaScript is beyond its scope), you can choose whether to remove or keep it.
+        any error handling in this tutorial (handling HTTP request errors in JavaScript is beyond its scope), you can choose whether to keep or remove it.
 
         ## Multiple Cameras
 
-        Because the data and methods for each camera instance is independent, we can make multiple `Camera` instances and control them all
+        Because the data and methods for each camera instance are independent, we can make multiple `Camera` instances and control them all
         independently. That's why I've named this article "Conducting an Orchestra". Let's see an example making two camera objects and changing
         settings on both of them:
 
