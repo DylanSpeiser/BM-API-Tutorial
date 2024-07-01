@@ -54,7 +54,112 @@
             const worker = new Worker(wsWorkerURL);
             URL.revokeObjectURL(wsWorkerURL);
 
-            
+            // *** Websockets START
+            worker.onmessage = function(event) {
+            const message = event.data;
+            if (message.action == 'open') {
+                wsAlive = true;
+                // reestablish subscriptions from dropped websocket
+                if (savedSubscriptions !== null && savedSubscriptions.length !== 0) {
+                wsSubscribe(savedSubscriptions);
+                savedSubscriptions = null;
+                }
+                return;
+            }
+            if (message.action == 'close') {
+                wsAlive = false;
+                savedSubscriptions = [...wsSubscriptions];
+                return;
+            }
+            // message.action == "received"
+            const data = JSON.parse(message.data);
+            const wsData = data.data;
+            const action = wsData?.action;
+            if (action == "listProperties")
+                wsProperties = wsData.properties
+
+            if (action == "listSubscriptions")
+                wsSubscriptions = wsData.properties
+
+            if (action == "subscribe") {
+                wsSubscriptions = [...new Set([...wsSubscriptions, ...wsData.properties])]
+                if (wsData.values)
+                {
+                for (const [property, value] of Object.entries(wsData.values)) {
+                    wsState[property] = value;
+                    // TODO: possibly add a toggle for this?
+                    apiState[property] = { data: value }
+                }
+                }
+            }
+
+            if (action == "unsubscribe") {
+                wsSubscriptions = wsSubscriptions.filter((v) => ! wsData.properties.includes(v) )  ;
+                // wsState = wsData.values ?? {}
+            }
+
+            if (action == "propertyValueChanged") {
+                wsState[wsData.property] = wsData.value
+                apiState[wsData.property] = { data: wsData.value }
+            }
+
+            // Display WS message
+            {
+                const {data, time} = message;
+                if (message.action === "received") {
+                wsMessages.unshift({message: JSON.parse(data), time: time, action: "received"});
+                }
+                throttledRender();
+            }
+            };
+
+            function sendWSMessage(message) {
+            wsMessages.unshift({message, time: new Date(), action: "sent"});
+            worker.postMessage({
+                action: 'send',
+                message: JSON.stringify(message)
+            });
+            render();
+            }
+
+            function openWS() {
+            worker.postMessage({
+                action: 'init',
+                url: `ws://${hostname}/control/api/v1/event/websocket`
+            });
+            }
+
+            function closeWS() {
+            worker.postMessage({action: 'close'});
+            }
+
+            function listProperties() {
+            sendWSMessage({type: "request", data: {action: "listProperties"}});
+            }
+
+            function listSubscriptions() {
+            sendWSMessage({type: "request", data: {action: "listSubscriptions"}});
+            }
+
+            function wsSubscribe(properties) {
+            sendWSMessage({type: "request", data: {action: "subscribe", properties}});
+            }
+
+            function wsUnsubscribe(properties) {
+            sendWSMessage({type: "request", data: {action: "unsubscribe", properties}});
+            }
+
+            const subscribeAll = () => wsSubscribe(wsProperties);
+            const unsubscribeAll = () => wsUnsubscribe(wsProperties);
+
+            function toggleSubscribeProperty(e, property) {
+            if (e.target.checked)
+                wsSubscribe([property])
+            else
+                wsUnsubscribe([property])
+            }
+
+            // *** Websockets END
         </script>
     </body>
 </html>
