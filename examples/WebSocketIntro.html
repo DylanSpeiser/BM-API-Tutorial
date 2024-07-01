@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Blackmagic API Tutorials: WebSocket Intro Page</title>
+    </head>
+    <body>
+        <span>Open the Developer Console for more information.</span>
+        <script src="BMDevice.js"></script>
+        <script>
+            // Here's where we will try out our first WebSocket functions.
+            // First, make a BMDevice object using the imported definitions from BMDevice.js:
+
+            var camera = new BMCamera("Studio-Camera-6K-Pro.local");
+
+            camera.GETdataFromEventList();
+
+            const wsWorkerURL = URL.createObjectURL(new Blob(['(',
+                function() {
+                    let ws;
+
+                    self.onmessage = function(event) {
+                        if (event.data.action === "init") {
+                            startWebSocket(event.data.url);
+                        } else if (event.data.action === "send") {
+                            ws.send(event.data.message);
+                        } else if (event.data.action === "close") {
+                            ws?.close();
+                        }
+                    };
+
+                    function startWebSocket(url) {
+                        ws = new WebSocket(url);
+
+                        ws.onmessage = function (event) {
+                            self.postMessage({action: "received", data: event.data, time: new Date()});
+                        };
+
+                        ws.onopen = function (event) {
+                            self.postMessage({action: "open"});
+                        }
+
+                        ws.onerror = function (error) {
+                            console.log("WebSocket error: "+error);
+                        }
+
+                        ws.onclose = function () {
+                            self.postMessage({action: "close"});
+                            console.log("WebSocket connection closed.");
+                        };
+                    }
+                }.toString()
+            ,')()'], {type: 'application/javaScript'}));
+
+            const worker = new Worker(wsWorkerURL);
+            URL.revokeObjectURL(wsWorkerURL);
+
+            
+        </script>
+    </body>
+</html>

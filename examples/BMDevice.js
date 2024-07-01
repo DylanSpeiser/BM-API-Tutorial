@@ -71,6 +71,37 @@ class BMDevice {
         return responseObject;
     }
 
+    // Send request with other method type
+    sendRequest(method, endpoint, data) {
+        // Instantiate the XMLHttpRequest object
+        let xhr = new XMLHttpRequest();
+    
+        // Create an object to store and return the response
+        var responseObject = {};
+    
+        // Define the onload function
+        xhr.onload = function() {
+            if (this.status < 300) {                            // If the operation is successful
+                if (this.responseText)
+                    responseObject = JSON.parse(this.responseText);     // Give the data to the responseObject
+                responseObject.status = this.status;                // Also pass along the status code for error handling
+            } else {                                            // If there has been an error
+                responseObject = this;                              // Give the XMLHttpRequest data to the responseObject
+                console.error("Error ", this.status, ": ", this.statusText);    // Log the error in the console
+            }
+        };
+    
+        // Open the connection
+        // The "false" here specifies that we want to wait for the response to come back before returning from xhr.send()
+        xhr.open(method, this.APIAddress+endpoint, false);
+    
+        // Send the request with data
+        xhr.send(JSON.stringify(data));
+    
+        // Return response data
+        return responseObject;
+    }
+
     // Uses the endpoints from calling "/event/list" to populate the object with data
     // Not all data is included, such as anything from the "/video" endpoints, but much of it is.
     GETdataFromEventList() {
@@ -94,6 +125,31 @@ class BMDevice {
     // If the optional parameter is set to false, it will stop recording 
     record(state = true) {
         this.PUTdata("/transports/0/record",{recording: state});
+    }
+
+    // This function rebuilds the playback timeline from the current
+    // recording media.
+    rebuildTimeline() {
+        let activeMedia = this.GETdata("/media/active");
+
+        this.PUTdata("/media/active", {workingsetIndex: activeMedia.workingsetIndex});
+    }
+
+    // This function formats the media drive at the given index in the device's working set
+    formatDrive(index, newVolumeName) {
+        // Fetch the device's working set
+        let workingSet = this.GETdata("/media/workingset").workingset;
+
+        // Get the format key for the indicated drive
+        let formatKey = this.GETdata("/media/devices/"+workingSet[index].deviceName+"/doformat").key;
+
+        // Here, I'm assuming that the drive is able to be formatted as ExFAT.
+        // Run this command and pick another option if that's not the case:
+
+        // let supportedFilesystems = this.GETdata("/media/devices/doformatSupportedFilesystems");
+
+        // Format the drive
+        this.PUTdata("/media/devices/"+workingSet[index].deviceName+"/doformat",{key: formatKey, volume: newVolumeName, filesystem: "ExFAT"})
     }
 }
 
