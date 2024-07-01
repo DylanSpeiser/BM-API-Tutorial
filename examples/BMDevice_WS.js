@@ -1,15 +1,69 @@
-// This is the version of BMDevice WITHUT WebSocket functionality
+// This is the version of BMDevice WITH WebSocket functionality
 
 class BMDevice {
     // Keep track of the device's hostname and API address
     hostname;
     APIAddress;
 
+    // WebSocket items
+    ws;
+    availableProperties;
+    propertyData = {};
+
+    // Static UI Updating callback function
+    static updateUI() {};
+
     // Constructor takes hostname as an argument and sets the
-    // hostname and APIAddress fields accordingly
+    // hostname and APIAddress fields accordingly. It also initializes
+    // the WebSocket.
     constructor(hostname) {
+        // Initialize Names
         this.hostname = hostname;
         this.APIAddress = "http://"+hostname+"/control/api/v1";
+
+        // Initialize WebSocket
+        this.ws = new WebSocket("ws://"+hostname+"/control/api/v1/event/websocket");
+
+        // Get a self object for accessing within callback fns
+        var self = this;
+
+        // Set the onmessage behavior
+        this.ws.onmessage = (event) => {
+            // Parse the event's data as JSON
+            let eventData = JSON.parse(event.data);
+
+            // Extract data we really care about
+            let messageData = eventData.data;
+
+            // If it's a listProperties message, update the available properties array
+            if (messageData.action == "listProperties") {
+                self.availableProperties = messageData.properties;
+            }
+
+            // If it's a propertyValueChanged event, update the camera object accordingly and show it on the web page.
+            if (messageData.action == "propertyValueChanged") {
+                this.propertyData[messageData.property] = messageData.value;
+                BMDevice.updateUI();
+            }
+
+            // Output info to console.
+            console.log("WebSocket message received: ", eventData);
+        }
+
+        // Wait for the WebSocket to open
+        this.ws.onopen = (event) => {
+            // Once the WebSocket is open,
+
+            // Ask it for all the properties
+            self.ws.send(JSON.stringify({type: "request", data: {action: "listProperties"}}));
+
+            sleep(100).then(() => {
+                // Subscribe to all available events
+                this.availableProperties.forEach((str) => {
+                    self.ws.send(JSON.stringify({type: "request", data: {action: "subscribe", properties: [str]}}));
+                });
+            });
+        }
     }
 
     // Returns a JSON Object of data we got from the device
@@ -204,4 +258,8 @@ class BMCamera extends BMDevice {
         this.PUTdata("/video/whiteBalance",{whiteBalance: newWhiteBalance});
         this.PUTdata("/video/whiteBalanceTint",{whiteBalanceTint: newWhiteBalanceTint});
     }
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }

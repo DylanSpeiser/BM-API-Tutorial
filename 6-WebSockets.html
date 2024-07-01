@@ -39,7 +39,7 @@
         <!-- Next/Previous Page Items -->
         <div id="PrevNextBox">
             <a href="5-Media-Management.html">< Previous Page</a>
-            <a href="#">Next Page ></a>
+            <a href="7-WebUI.html">Next Page ></a>
         </div>
         
         <!-- Parse page content from markdown -->
@@ -50,10 +50,279 @@
         accurate record of the device's current status.
 
         ## What's a WebSocket?
+
+        A WebSocket is a two-way, event-based, network communication channel. WebSockets are designed to 
+        be used for web and internet applications, which is why they are particularly well suited for JavaScript.
+
+        A WebSocket connection to a Blackmagic device involves initializing the connection,
+        subscribing to the device's properties, and acting with the data the event's data.
+
+        We can initialize a new WebSocket object in JavaScript by giving the constructor our device's WebSocket URL.
+        The WebSocket URL looks like this:
+
+        ```
+        ws://&lt;Hostname&gt;/control/api/v1/event/websocket
+        ```
+
+        So, for me connecting to the camera, I initialize a new WebSocket object named `ws` like so:
+
+        ```JS
+        var ws = new WebSocket("ws://Studio-Camera-6K-Pro.local/control/api/v1/event/websocket");
+        ```
+
+        When we run this, it establishes a connection to the camera's WebSocket API. We can define the behavior of this
+        WebSocket connection by passing functions to `ws`'s `onmessage`, `onerror`, `onopen`, and `onclose` functions.
+        These functions get called when the WebSocket gets a message, encounters an error, opens a new connection, or closes one.
+
+        To get someting basic working, we can pass a simple function to `ws.onmessage` like so:
+
+        ```JS
+        ws.onmessage = (event) => {
+            console.log("WebSocket message received: ", JSON.parse(event.data));
+        };
+        ```
+
+        This function just outputs the message event's data (which is a JSON string) to the console, which is good enough for this
+        demonstration. Now that we've defined the behavior, let's send our first message.
+
+        This message will ask the camera for the available properties we can subscribe to. To do this, we send the camera
+        this JSON object through the WebSocket:
+
+        ```JSON
+        {type: "request", data: {action: "listProperties"}}
+        ```
+
+        ```JS
+        ws.send(JSON.stringify({type: "request", data: {action: "listProperties"}}));
+        ```
+
+        If all has gone well, the console should have printed the following:
+
+        ```
+        WebSocket message received: &#8227; {data: {…}, type: 'response'}
+        ```
+
+        Expanding our view of the returned JSON object, we can see that the response data
+        lists the request action (`listProperties`), an array of all the properties we can subscribe to,
+        and `success: true`, indicating that the request was successful.
+
+        There isn't much documentation from Blackmagic about how this WebSocket API works, other than a Notification.yaml
+        file that you can access at the same link as the other YAML documentation files: (`http://&lt;Hostname&gt;.local/control/documentation.html`).
+
+        ## Subscriptions
+
+        To make the data returned by the WebSocket more useful, let's make some modifications to our `ws.onmessage` function:
+
+        ```JS
+        // Array to store the properties we can subscribe to
+        var availableProperties;
+
+        ws.onmessage = (event) => {
+            let eventData = JSON.parse(event.data);
+
+            if (eventData.type == "response") {
+                let messageData = eventData.data;
+
+                if (messageData.action == "listProperties") {
+                    availableProperties = messageData.properties;
+                } 
+            }
+
+            console.log("WebSocket message received: ", eventData);
+        }
+        ```
+
+        This `ws.onmessage` function is important, since the response from the WebSocket is only available
+        within this function as `event.data`. To save the relevant information for later, I've made a special
+        case for the `listProperties` action, where if a response of that kind is received, it will set a global
+        variable array to reflect the properties from the camera. We can now use it to subscribe to events.
+
+        Looking at the strings in this array, the subscribe-able camera properties have the same format as the REST API
+        endpoints:
+
+        ```JSON
+        availableProperties = [
+        "/audio/channel/0/available",
+        "/audio/channel/0/input",
+        "/audio/channel/0/level",
+        ...
+        "/clips/list",
+        "/colorCorrection/color",
+        "/colorCorrection/contrast",
+        "/colorCorrection/gain",
+        ...
+        "/lens/focus",
+        "/lens/iris",
+        "/lens/zoom",
+        "/media/active",
+        "/media/workingset",
+        "/presets",
+        ...
+        "/video/ndFilter/displayMode",
+        "/video/shutter",
+        "/video/whiteBalance",
+        "/video/whiteBalanceTint"
+        ]
+        ```
+
+        Let's pick one of these for now. For example, `/transports/0/record`.
+        To subscribe to this property, we'll run this line of JavaScript:
+
+        ```JS
+        ws.send(JSON.stringify({type: "request", data: {action: "subscribe", properties: ["/transports/0/record"]}}));
+        ```
+
+        After running this line, we should see a message from the WebSocket come back with a response object like this:
+
+        ```JSON
+        {
+            "data": {
+                "action": "subscribe",
+                "properties": [
+                    "/transports/0/record"
+                ],
+                "success": true,
+                "values": {
+                    "/transports/0/record": {
+                        "recording": false
+                    }
+                }
+            },
+            "type": "response"
+        }
+        ```
+
+        Notice that the camera acknowledges that we've subscribed to the property `/transports/0/record`, and it gave us its
+        current value, which is that the camera is not recording.
+
+        Now, if we press record on the camera (either physically or over the network), new WebSocket messages should appear in the console
+        whose data objects show that the camera has started recording. Because we subscribed to the recording property, the camera sent a
+        WebSocket message to our computer when the camera started recording. The WebSocket arrived, called `ws.onmessage`, and our function
+        output the received data to the command line.
+
+        My returned object had this format:
+
+        ```JSON
+        {
+            "data": {
+                "action": "propertyValueChanged",
+                "property": "/transports/0/record",
+                "value": {
+                    "recording": true
+                }
+            },
+            "type": "event"
+        }
+        ```
+
+        Now, by adding behavior to the `ws.onmessage` function and subscribing to more properties, we can keep our program
+        synchronized with what the camera is doing. This might include updating elements on a web page, which we'll see next.
+
+        ## Talk to the Web Page
+
+        If we're storing data about the camera's state, we can keep it updated by checking for the `propertyValueChanged` action in `ws.onmessage`,
+        then update our data as necessary. For demonstration purposes, I'll store the data in a `BMDCamera` object organized by property. I'll also
+        add a `&lt;pre&gt;` HTML element with id `cameraInfo` on a web page running this script, which the new `onmessage` function will modify the contents of.
         
+        Our new `onmessage` function looks like this:
+
+        ```JS
+        ws.onmessage = (event) => {
+            // Parse the event's data as JSON
+            let eventData = JSON.parse(event.data);
+
+            // Extract data we really care about
+            let messageData = eventData.data;
+
+            // If it's a listProperties message, update the available properties array
+            if (messageData.action == "listProperties") {
+                availableProperties = messageData.properties;
+            }
+
+            // If it's a propertyValueChanged event, update the camera object accordingly.
+            if (messageData.action == "propertyValueChanged") {
+                camera[messageData.property] = messageData.value;
+                document.getElementById("cameraInfo").innerHTML = JSON.stringify(camera, undefined, 4);
+            }
+
+            // Output info to console.
+            console.log("WebSocket message received: ", eventData);
+        }
+        ```
+
+        Notice that I'm using the `document.getElementById` method here. This is because I'm writing
+        this script to run on a web page. If you're following along, do the same, and you'll see your
+        camera's recording state update in real time as the WebSocket messages keep us informed about
+        what the camera is doing. To see the full code for this small, testing web page, open [WebSocketIntro.html](examples/WebSocketIntro.html)
+        in the examples folder.
+
+        ## A Graduating Class
+
+        Let's pull it all together by incorporating this WebSocket functionality into a new version of the
+        `BMDevice` class. Remember, you can find all the code in the examples folder in the GitHub respository.
+
+        This modified `BMDevice` class is available in `BMDevice_WS.js`, and this example is in [WebSocketPropDisplay.html](examples/WebSocketPropDisplay.html).
+        The important changes are adding `ws`, `availableProperties`, and `propertyData` fields to the `BMDevice` class. I initialize the `ws` field and its behavior
+        in the `BMDevice` constructor.
+
+        The new lines in the constructor are as follows:
+
+        ```JS
+        // Initialize WebSocket
+        this.ws = new WebSocket("ws://"+hostname+"/control/api/v1/event/websocket");
+
+        // Get a self object for accessing within callback fns
+        var self = this;
+
+        // Set the onmessage behavior
+        this.ws.onmessage = (event) => {
+            // Parse the event's data as JSON
+            let eventData = JSON.parse(event.data);
+
+            // Extract data we really care about
+            let messageData = eventData.data;
+
+            // If it's a listProperties message, update the available properties array
+            if (messageData.action == "listProperties") {
+                self.availableProperties = messageData.properties;
+            }
+
+            // If it's a propertyValueChanged event, update the camera object accordingly and show it on the web page.
+            if (messageData.action == "propertyValueChanged") {
+                this.propertyData[messageData.property] = messageData.value;
+                BMDevice.updateUI();
+            }
+
+            // Output info to console.
+            console.log("WebSocket message received: ", eventData);
+        }
+
+        // Wait for the WebSocket to open
+        this.ws.onopen = (event) => {
+            // Once the WebSocket is open,
+
+            // Ask it for all the properties
+            self.ws.send(JSON.stringify({type: "request", data: {action: "listProperties"}}));
+
+            sleep(100).then(() => {
+                // Subscribe to all available events
+                this.availableProperties.forEach((str) => {
+                    self.ws.send(JSON.stringify({type: "request", data: {action: "subscribe", properties: [str]}}));
+                });
+            });
+        }
+        ```
+
+        To try this out yourself, open the [WebSocketPropDisplay.html](examples/WebSocketPropDisplay.html) file and replace the hostname
+        in the `&lt;script&gt;` tag with your own. Once you change settings on your camera, they should update in real time on the page.
+        This is also a great way to look at how the JSON data is organized.
+
+        We finally have the foundation laid for a working WebUI. In the next article, I'll talk about how you can create one yourself and
+        what I did to get mine working.
+
         </md-block>
 
-        <div><a href="#" style="text-align: center;">Next Article</a></div>
+        <div><a href="7-WebUI.html" style="text-align: center;">Next Article</a></div>
 
         <!-- Footer -->
         <footer>

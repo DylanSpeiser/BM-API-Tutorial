@@ -4,162 +4,61 @@
         <title>Blackmagic API Tutorials: WebSocket Intro Page</title>
     </head>
     <body>
+        <!-- Basic Elements for displaying camera info -->
+        <h2>Camera Object Information:</h2>
+        <pre id="cameraInfo"></pre>
+
         <span>Open the Developer Console for more information.</span>
+
+        <!-- Use the BMDevice Class -->
         <script src="BMDevice.js"></script>
+
+        <!-- New WebSocket Script   -->
         <script>
             // Here's where we will try out our first WebSocket functions.
-            // First, make a BMDevice object using the imported definitions from BMDevice.js:
 
+            // Initialize camera
             var camera = new BMCamera("Studio-Camera-6K-Pro.local");
 
-            camera.GETdataFromEventList();
+            // Let's make a WebSocket object called ws
+            var ws = new WebSocket("ws://Studio-Camera-6K-Pro.local/control/api/v1/event/websocket");
+            
+            // Array to store the properties we can subscribe to
+            var availableProperties;
 
-            const wsWorkerURL = URL.createObjectURL(new Blob(['(',
-                function() {
-                    let ws;
+            // Set the onmessage behavior
+            ws.onmessage = (event) => {
+                // Parse the event's data as JSON
+                let eventData = JSON.parse(event.data);
 
-                    self.onmessage = function(event) {
-                        if (event.data.action === "init") {
-                            startWebSocket(event.data.url);
-                        } else if (event.data.action === "send") {
-                            ws.send(event.data.message);
-                        } else if (event.data.action === "close") {
-                            ws?.close();
-                        }
-                    };
+                // Extract data we really care about
+                let messageData = eventData.data;
 
-                    function startWebSocket(url) {
-                        ws = new WebSocket(url);
-
-                        ws.onmessage = function (event) {
-                            self.postMessage({action: "received", data: event.data, time: new Date()});
-                        };
-
-                        ws.onopen = function (event) {
-                            self.postMessage({action: "open"});
-                        }
-
-                        ws.onerror = function (error) {
-                            console.log("WebSocket error: "+error);
-                        }
-
-                        ws.onclose = function () {
-                            self.postMessage({action: "close"});
-                            console.log("WebSocket connection closed.");
-                        };
-                    }
-                }.toString()
-            ,')()'], {type: 'application/javaScript'}));
-
-            const worker = new Worker(wsWorkerURL);
-            URL.revokeObjectURL(wsWorkerURL);
-
-            // *** Websockets START
-            worker.onmessage = function(event) {
-            const message = event.data;
-            if (message.action == 'open') {
-                wsAlive = true;
-                // reestablish subscriptions from dropped websocket
-                if (savedSubscriptions !== null && savedSubscriptions.length !== 0) {
-                wsSubscribe(savedSubscriptions);
-                savedSubscriptions = null;
+                // If it's a listProperties message, update the available properties array
+                if (messageData.action == "listProperties") {
+                    availableProperties = messageData.properties;
                 }
-                return;
-            }
-            if (message.action == 'close') {
-                wsAlive = false;
-                savedSubscriptions = [...wsSubscriptions];
-                return;
-            }
-            // message.action == "received"
-            const data = JSON.parse(message.data);
-            const wsData = data.data;
-            const action = wsData?.action;
-            if (action == "listProperties")
-                wsProperties = wsData.properties
 
-            if (action == "listSubscriptions")
-                wsSubscriptions = wsData.properties
-
-            if (action == "subscribe") {
-                wsSubscriptions = [...new Set([...wsSubscriptions, ...wsData.properties])]
-                if (wsData.values)
-                {
-                for (const [property, value] of Object.entries(wsData.values)) {
-                    wsState[property] = value;
-                    // TODO: possibly add a toggle for this?
-                    apiState[property] = { data: value }
+                // If it's a propertyValueChanged event, update the camera object accordingly and show it on the web page.
+                if (messageData.action == "propertyValueChanged") {
+                    camera[messageData.property] = messageData.value;
+                    document.getElementById("cameraInfo").innerHTML = JSON.stringify(camera, undefined, 4);
                 }
-                }
+
+                // Output info to console.
+                console.log("WebSocket message received: ", eventData);
             }
 
-            if (action == "unsubscribe") {
-                wsSubscriptions = wsSubscriptions.filter((v) => ! wsData.properties.includes(v) )  ;
-                // wsState = wsData.values ?? {}
+            // Wait for the WebSocket to open
+            ws.onopen = (event) => {
+                // Once the WebSocket is open,
+
+                // Ask it for all the properties
+                ws.send(JSON.stringify({type: "request", data: {action: "listProperties"}}));
+                
+                // Subscribe to record events
+                ws.send(JSON.stringify({type: "request", data: {action: "subscribe", properties: ["/transports/0/record"]}}));
             }
-
-            if (action == "propertyValueChanged") {
-                wsState[wsData.property] = wsData.value
-                apiState[wsData.property] = { data: wsData.value }
-            }
-
-            // Display WS message
-            {
-                const {data, time} = message;
-                if (message.action === "received") {
-                wsMessages.unshift({message: JSON.parse(data), time: time, action: "received"});
-                }
-                throttledRender();
-            }
-            };
-
-            function sendWSMessage(message) {
-            wsMessages.unshift({message, time: new Date(), action: "sent"});
-            worker.postMessage({
-                action: 'send',
-                message: JSON.stringify(message)
-            });
-            render();
-            }
-
-            function openWS() {
-            worker.postMessage({
-                action: 'init',
-                url: `ws://${hostname}/control/api/v1/event/websocket`
-            });
-            }
-
-            function closeWS() {
-            worker.postMessage({action: 'close'});
-            }
-
-            function listProperties() {
-            sendWSMessage({type: "request", data: {action: "listProperties"}});
-            }
-
-            function listSubscriptions() {
-            sendWSMessage({type: "request", data: {action: "listSubscriptions"}});
-            }
-
-            function wsSubscribe(properties) {
-            sendWSMessage({type: "request", data: {action: "subscribe", properties}});
-            }
-
-            function wsUnsubscribe(properties) {
-            sendWSMessage({type: "request", data: {action: "unsubscribe", properties}});
-            }
-
-            const subscribeAll = () => wsSubscribe(wsProperties);
-            const unsubscribeAll = () => wsUnsubscribe(wsProperties);
-
-            function toggleSubscribeProperty(e, property) {
-            if (e.target.checked)
-                wsSubscribe([property])
-            else
-                wsUnsubscribe([property])
-            }
-
-            // *** Websockets END
         </script>
     </body>
 </html>

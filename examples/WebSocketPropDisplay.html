@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Blackmagic API Tutorials: WebSocket Properties Display</title>
+    </head>
+    <body>
+        <!-- Basic Elements for displaying camera info -->
+        <h2>Camera Object Information:</h2>
+        <pre id="cameraInfo"></pre>
+
+        <span>Open the Developer Console for more information.</span>
+
+        <!-- Use the new BMDevice Class -->
+        <script src="BMDevice_WS.js"></script>
+
+        <!-- WebSocket Script -->
+        <script>
+            // Initialize camera
+            var camera = new BMCamera("Studio-Camera-6K-Pro.local");
+
+            BMDevice.updateUI = function() {
+                document.getElementById("cameraInfo").innerHTML = JSON.stringify(camera, undefined, 4);
+            }
+        </script>
+    </body>
+</html>

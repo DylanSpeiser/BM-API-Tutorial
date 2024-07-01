@@ -97,6 +97,10 @@ a {
     font-weight: 500;
 }
 
+#PrevNextBox a.disabled {
+    color: #424242;
+}
+
 h1 a {
     color: white;
     text-decoration: none;
