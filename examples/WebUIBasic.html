@@ -41,7 +41,7 @@
                 device.updateUI = updateUI;
 
                 // If success, display Connected text.
-                if (device.GETdata("/system").status == 204) {
+                if (device.GETdata("/system").status < 300) {
                     // Status 204 is the expected behavior
                     document.getElementById("connectedStatusText").innerHTML = "Connected.";
                 }
