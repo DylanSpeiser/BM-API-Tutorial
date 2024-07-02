@@ -287,11 +287,18 @@
                 self.availableProperties = messageData.properties;
             }
 
+            // If we get a response from the camera with property information, save it.
+            if (eventData.type == "response") {
+                Object.assign(this.propertyData, messageData.values);
+            }
+
             // If it's a propertyValueChanged event, update the camera object accordingly and show it on the web page.
             if (messageData.action == "propertyValueChanged") {
                 this.propertyData[messageData.property] = messageData.value;
-                BMDevice.updateUI();
             }
+
+            // Update the UI
+            BMDevice.updateUI();
 
             // Output info to console.
             console.log("WebSocket message received: ", eventData);

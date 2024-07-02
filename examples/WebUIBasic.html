@@ -1,0 +1,75 @@
+<!-- Basic HTML WebUI for Blackmagic Devices -->
+<!--  (c) 2024 Dylan Speiser, GNU GPL v3.0   -->
+
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>Demo Blackmagic WebUI</title>
+    </head>
+
+    <body>
+        <!-- Import Scripts -->
+        <script src="BMDevice_WS.js"></script>
+
+        <!-- Page Contents -->
+        <h1>Demo Blackmagic WebUI</h1>
+
+        <input type="text" id="hostnameInput">
+        <button onclick="initConnection()">Connect</button>
+        <span id="connectedStatusText">Disconnected</span>
+
+        <br><br>
+
+        <span>Timecode: </span>
+        <span id="timecodeText"></span>
+
+        <br>
+
+        <button onclick="recordButton()" id="recordButton">Record</button>
+
+        <!-- Interfacing Script -->
+        <script>
+            var device;
+
+            function initConnection() {
+                // We're expecting the user to enter the hostname by itself, with the .local suffix, no http://
+                let hostname = document.getElementById("hostnameInput").value;
+
+                // Initialize device and pass UI updating fn
+                device = new BMDevice(hostname);
+                device.updateUI = updateUI;
+
+                // If success, display Connected text.
+                if (device.GETdata("/system").status == 204) {
+                    // Status 204 is the expected behavior
+                    document.getElementById("connectedStatusText").innerHTML = "Connected.";
+                }
+            }
+
+            function parseTimecode(timecodeBCD) {
+                let decimalTCInt = parseInt(timecodeBCD.toString(16), 10);      // Convert the BCD number into base ten
+                let decimalTCString = decimalTCInt.toString().padStart(8, '0'); // Convert the base ten number to a string eight characters long
+                let finalTCString = decimalTCString.match(/.{1,2}/g).join(':'); // Put colons between every two characters
+                return finalTCString;
+            }
+
+            function recordButton() {
+                // Get recording state from the device
+                let recordState = device.propertyData['/transports/0/record'].recording;
+
+                // Toggle the recording state of the device
+                device.record(!recordState);
+            }
+
+            function updateUI() {
+                // Update Timecode Span
+                document.getElementById("timecodeText").innerHTML = parseTimecode(device.propertyData["/transports/0/timecode"].timecode);
+
+                // Update record button color
+                document.getElementById("recordButton").style.backgroundColor = (device.propertyData['/transports/0/record'].recording ? "red" : "white");
+            }
+        </script>
+    </body>
+
+</html>

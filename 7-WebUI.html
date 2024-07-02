@@ -46,6 +46,237 @@
         <md-block>
         # 7. Building a WebUI
 
+        It's time. We have a JavaScript class that handles communication with the camera, and we've already seen how we can use the data to drive HTML elements
+        on a web page. So, now, let's put it all together and make a functional web UI for controlling a camera or HyperDeck.
+
+        There are many ways you can solve these programming problems. My way is not necessarily correct, so please take this tutorial as an example, not gospel.
+
+        ## Starting Small
+
+        Let's start with something easy: a minimal web page that connects to one camera and has some unstylized buttons for sending basic commands. This will give us
+        a chance to get our toes wet before jumping in head-first. I'll provide the finished code for this basic web page at [examples/WebUIBasic.html](examples/WebUIBasic.html).
+
+        Here's the basic HTML boilerplate for any new webpage:
+
+        ```HTML
+        &lt;!DOCTYPE html&gt;
+        &lt;html&gt;
+            &lt;head&gt;
+                &lt;title&gt;&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body&gt;
+        
+            &lt;/body&gt;
+        &lt;/html&gt;
+        ```
+
+        Next, I'll add a title, basic header, and link our `BMDevice_WS.js` file in a `&lt;script&gt;` tag:
+
+        ```HTML
+        &lt;!DOCTYPE html&gt;
+        &lt;html&gt;
+            &lt;head&gt;
+                &lt;title&gt;Demo Blackmagic WebUI&lt;/title&gt;
+            &lt;/head&gt;
+            &lt;body&gt;
+                &lt;!-- Import Scripts --&gt;
+                &lt;script src="BMDevice_WS.js"&gt;&lt;/script&gt;
+        
+                &lt;!-- Page Contents --&gt;
+                &lt;h1&gt;Demo Blackmagic WebUI&lt;/h1&gt;
+            &lt;/body&gt;
+        &lt;/html&gt;
+        ```
+
+        Our first step is to add a text input for the device's hostname and a button to start the connection. The HTML for those looks like this:
+
+        ```HTML
+        &lt;input type="text" id="hostnameInput"&gt;
+        &lt;button&gt;Connect&lt;/button&gt;
+        ```
+
+        But these don't do anything yet. Let's write some new JavaScript code to interface these HTML elements with our BMDevice class.
+        I'll put it in a `&lt;script&gt;` tag at the bottom of the page body.
+
+        ```JS
+        var device;
+
+        function initConnection() {
+            // We're expecting the user to enter the hostname by itself, with the .local suffix, no http://
+            let hostname = document.getElementById("hostnameInput").value;
+
+            device = new BMDevice(hostname);
+        }
+        ```
+
+        Remember `document.getElementById`? It's gonna be our best friend real soon.
+        Now we add an `onclick` property to the button, having it call `initConnection()` when it's pressed.
+        I'll also add a `&lt;span&gt;` tag that we'll update to say "connected" if it's successful.
+        So now our page looks like this:
+
+        ```HTML
+        &lt;!DOCTYPE html&gt;
+        &lt;html&gt;
+
+            &lt;head&gt;
+                &lt;title&gt;Demo Blackmagic WebUI&lt;/title&gt;
+            &lt;/head&gt;
+
+            &lt;body&gt;
+                &lt;!-- Import Scripts --&gt;
+                &lt;script src="BMDevice_WS.js"&gt;&lt;/script&gt;
+
+                &lt;!-- Page Contents --&gt;
+                &lt;h1&gt;Demo Blackmagic WebUI&lt;/h1&gt;
+
+                &lt;input type="text" id="hostnameInput"&gt;
+                &lt;button onclick="initConnection()"&gt;Connect&lt;/button&gt;
+                &lt;span id="connectedStatusText"&gt;Disconnected&lt;/span&gt;
+
+                &lt;!-- Interfacing Script --&gt;
+                &lt;script&gt;
+                    var device;
+
+                    function initConnection() {
+                        // We're expecting the user to enter the hostname by itself, with the .local suffix, no http://
+                        let hostname = document.getElementById("hostnameInput").value;
+
+                        device = new BMDevice(hostname);
+
+                        if (device.GETdata("/system").status == 204) {
+                            // Status 204 is the expected behavior
+                            document.getElementById("connectedStatusText").innerHTML = "Connected.";
+                        }
+                    }
+                &lt;/script&gt;
+            &lt;/body&gt;
+
+        &lt;/html&gt;
+        ```
+
+        If all has gone well, opening the Developer Console should show that we're receiving WebSocket messages from the device. Our `device` object should have all of the available
+        properties populated as well, since the constructor we wrote in the last article automatically subscribes to all available properties. We could, like last time, view the device
+        and its properties in its native, JSON form on the page. But that's not very user-friendly. Let's transform the data from the device into nice-looking HTML elements, starting with
+        the timecode.
+
+        ### Timecode Transformations
+
+        The timecode is stored on the device in **B**inary-**C**oded-**D**ecimal format. We'll need a function that can transform this BCD number into a readable timecode string.
+        This will involve converting the number into base 16 (hexadecimal), re-parsing it as a base 10 (decimal) integer, padding it with zeroes, and adding colons between each pair of digits.
+        This function can be written in one line, but for readability I'll expand it into multiple lines:
+
+        ```JS
+        function parseTimecode(timecodeBCD) {
+            let decimalTCInt = parseInt(timecodeBCD.toString(16), 10);      // Convert the BCD number into base ten
+            let decimalTCString = decimalTCInt.toString().padStart(8, '0'); // Convert the base ten number to a string eight characters long
+            let finalTCString = decimalTCString.match(/.{1,2}/g).join(':'); // Put colons between every two characters
+            return finalTCString;
+        }
+        ```
+
+        Our `BMDevice` class contains a reference to a function called `updateUI` that we can overwrite for our purposes. The function gets called whenever the camera receives a WebSocket message.
+        We can set this function in the `&lt;script&gt;` tag on our page, or in any other linked JS file. Here's the whole HTML file now:
+
+        ```HTML
+        &lt;!DOCTYPE html&gt;
+        &lt;html&gt;
+
+            &lt;head&gt;
+                &lt;title&gt;Demo Blackmagic WebUI&lt;/title&gt;
+            &lt;/head&gt;
+
+            &lt;body&gt;
+                &lt;!-- Import Scripts --&gt;
+                &lt;script src="BMDevice_WS.js"&gt;&lt;/script&gt;
+
+                &lt;!-- Page Contents --&gt;
+                &lt;h1&gt;Demo Blackmagic WebUI&lt;/h1&gt;
+
+                &lt;input type="text" id="hostnameInput"&gt;
+                &lt;button onclick="initConnection()"&gt;Connect&lt;/button&gt;
+                &lt;span id="connectedStatusText"&gt;Disconnected&lt;/span&gt;
+
+                &lt;br&gt;&lt;br&gt;
+
+                &lt;span&gt;Timecode: &lt;/span&gt;
+                &lt;span id="timecodeText"&gt;&lt;/span&gt;
+
+                &lt;!-- Interfacing Script --&gt;
+                &lt;script&gt;
+                    var device;
+
+                    function initConnection() {
+                        // We're expecting the user to enter the hostname by itself, with the .local suffix, no http://
+                        let hostname = document.getElementById("hostnameInput").value;
+
+                        // Initialize device and pass UI updating fn
+                        device = new BMDevice(hostname);
+                        device.updateUI = updateUI;
+
+                        // If success, display Connected text.
+                        if (device.GETdata("/system").status == 204) {
+                            // Status 204 is the expected behavior
+                            document.getElementById("connectedStatusText").innerHTML = "Connected.";
+                        }
+                    }
+
+                    function parseTimecode(timecodeBCD) {
+                        let decimalTCInt = parseInt(timecodeBCD.toString(16), 10);      // Convert the BCD number into base ten
+                        let decimalTCString = decimalTCInt.toString().padStart(8, '0'); // Convert the base ten number to a string eight characters long
+                        let finalTCString = decimalTCString.match(/.{1,2}/g).join(':'); // Put colons between every two characters
+                        return finalTCString;
+                    }
+
+                    function updateUI() {
+                        // Update Timecode Span
+                        document.getElementById("timecodeText").innerHTML = parseTimecode(device.propertyData["/transports/0/timecode"].timecode);
+                    }
+                &lt;/script&gt;
+            &lt;/body&gt;
+
+        &lt;/html&gt;
+        ```
+
+        And now we've got a live timecode display. Awesome!
+
+        Note that I wrote my `updateUI` function separately and passed its reference to `device.updateUI` in the `initConnection` function, since the reference can only be passed after
+        `device` has been initialized as a `BMDevice` object.
+
+        Now, let's add a Record button and hook it up. I'll have our `updateUI` function change the color of the button depending on whether the camera is currently recording or not.
+
+        ```HTML
+        &lt;button onclick="recordButton()" id="recordButton"&gt;Record&lt;/button&gt;
+        ```
+
+        ```JS
+        function recordButton() {
+            // Get recording state from the device
+            let recordState = device.propertyData['/transports/0/record'].recording;
+
+            // Toggle the recording state of the device
+            device.record(!recordState);
+        }
+        ```
+
+        ```JS
+        // In updateUI()
+
+        document.getElementById("recordButton").style.backgroundColor = (device.propertyData['/transports/0/record'].recording ? "red" : "white");
+        ```
+
+        In the line that sets the button's color, I used a ternary operator. It works like this:
+
+        ```JS
+        // If a is true, the expression will evaluate to b. If a is false, it will evaluate to c.
+        (a ? b : c)
+        ```
+
+        And it works! We're able to remotely press record to start and stop the camera recording. It'll even work with a HyperDeck, too, since they use the same endpoints.
+
+        ## Taking it Up a Notch
+
+        
+
         </md-block>
 
         <!-- Footer -->

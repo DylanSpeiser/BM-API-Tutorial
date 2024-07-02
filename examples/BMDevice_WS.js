@@ -10,8 +10,8 @@ class BMDevice {
     availableProperties;
     propertyData = {};
 
-    // Static UI Updating callback function
-    static updateUI() {};
+    // Reference to UI Updating callback function
+    updateUI() {};
 
     // Constructor takes hostname as an argument and sets the
     // hostname and APIAddress fields accordingly. It also initializes
@@ -40,11 +40,18 @@ class BMDevice {
                 self.availableProperties = messageData.properties;
             }
 
+            // If we get a response from the camera with property information, save it.
+            if (eventData.type == "response") {
+                Object.assign(this.propertyData, messageData.values);
+            }
+
             // If it's a propertyValueChanged event, update the camera object accordingly and show it on the web page.
             if (messageData.action == "propertyValueChanged") {
                 this.propertyData[messageData.property] = messageData.value;
-                BMDevice.updateUI();
             }
+
+            // Update the UI
+            this.updateUI();
 
             // Output info to console.
             console.log("WebSocket message received: ", eventData);
@@ -72,12 +79,14 @@ class BMDevice {
         let xhr = new XMLHttpRequest();
     
         // Create an object to store and return the response
-        var responseObject;
+        var responseObject = {};
     
         // Define the onload function
         xhr.onload = function() {
             if (this.status < 300) {                            // If the operation is successful
-                responseObject = JSON.parse(this.responseText);     // Give the data to the responseObject
+                if (this.responseText) {
+                    responseObject = JSON.parse(this.responseText);     // Give the data to the responseObject
+                }
                 responseObject.status = this.status;                // Also pass along the status code for error handling
             } else {                                            // If there has been an error
                 responseObject = this;                              // Give the XMLHttpRequest data to the responseObject
