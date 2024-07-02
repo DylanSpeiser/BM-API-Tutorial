@@ -18,7 +18,7 @@
             // Initialize camera
             var camera = new BMCamera("Studio-Camera-6K-Pro.local");
 
-            BMDevice.updateUI = function() {
+            camera.updateUI = function() {
                 document.getElementById("cameraInfo").innerHTML = JSON.stringify(camera, undefined, 4);
             }
         </script>

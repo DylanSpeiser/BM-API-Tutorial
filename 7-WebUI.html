@@ -49,7 +49,8 @@
         It's time. We have a JavaScript class that handles communication with the camera, and we've already seen how we can use the data to drive HTML elements
         on a web page. So, now, let's put it all together and make a functional web UI for controlling a camera or HyperDeck.
 
-        There are many ways you can solve these programming problems. My way is not necessarily correct, so please take this tutorial as an example, not gospel.
+        There are many ways you can solve these programming problems. My way is not necessarily correct, and it is definitely not the only way,
+        so please take this tutorial as an example, not gospel.
 
         ## Starting Small
 
@@ -161,20 +162,21 @@
 
         ### Timecode Transformations
 
-        The timecode is stored on the device in **B**inary-**C**oded-**D**ecimal format. We'll need a function that can transform this BCD number into a readable timecode string.
+        The timecode is stored on the camera in **B**inary-**C**oded-**D**ecimal format. We'll need a function that can transform this BCD number into a readable timecode string.
         This will involve converting the number into base 16 (hexadecimal), re-parsing it as a base 10 (decimal) integer, padding it with zeroes, and adding colons between each pair of digits.
         This function can be written in one line, but for readability I'll expand it into multiple lines:
 
         ```JS
         function parseTimecode(timecodeBCD) {
-            let decimalTCInt = parseInt(timecodeBCD.toString(16), 10);      // Convert the BCD number into base ten
-            let decimalTCString = decimalTCInt.toString().padStart(8, '0'); // Convert the base ten number to a string eight characters long
-            let finalTCString = decimalTCString.match(/.{1,2}/g).join(':'); // Put colons between every two characters
+            let noDropFrame = timecodeBCD & 0b01111111111111111111111111111111;     // The first bit of the timecode is 1 if "Drop Frame Timecode" is on. We don't want to include that in the display.
+            let decimalTCInt = parseInt(noDropFrame.toString(16), 10);              // Convert the BCD number into base ten
+            let decimalTCString = decimalTCInt.toString().padStart(8, '0');         // Convert the base ten number to a string eight characters long
+            let finalTCString = decimalTCString.match(/.{1,2}/g).join(':');         // Put colons between every two characters
             return finalTCString;
         }
         ```
 
-        Our `BMDevice` class contains a reference to a function called `updateUI` that we can overwrite for our purposes. The function gets called whenever the camera receives a WebSocket message.
+        Our `BMDevice` class contains a reference to a function called `updateUI` that we can overwrite for our purposes. The function gets called whenever the device receives a WebSocket message.
         We can set this function in the `&lt;script&gt;` tag on our page, or in any other linked JS file. Here's the whole HTML file now:
 
         ```HTML
@@ -221,9 +223,10 @@
                     }
 
                     function parseTimecode(timecodeBCD) {
-                        let decimalTCInt = parseInt(timecodeBCD.toString(16), 10);      // Convert the BCD number into base ten
-                        let decimalTCString = decimalTCInt.toString().padStart(8, '0'); // Convert the base ten number to a string eight characters long
-                        let finalTCString = decimalTCString.match(/.{1,2}/g).join(':'); // Put colons between every two characters
+                        let noDropFrame = timecodeBCD & 0b01111111111111111111111111111111;     // The first bit of the timecode is 1 if "Drop Frame Timecode" is on. We don't want to include that in the display.
+                        let decimalTCInt = parseInt(noDropFrame.toString(16), 10);              // Convert the BCD number into base ten
+                        let decimalTCString = decimalTCInt.toString().padStart(8, '0');         // Convert the base ten number to a string eight characters long
+                        let finalTCString = decimalTCString.match(/.{1,2}/g).join(':');         // Put colons between every two characters
                         return finalTCString;
                     }
 
@@ -237,7 +240,8 @@
         &lt;/html&gt;
         ```
 
-        And now we've got a live timecode display. Awesome!
+        And now we've got a live timecode display. Awesome! It won't work with a HyperDeck, though, since it doesn't have a way to get the timecode over the network. If you are using a HyperDeck, don't include the
+        timecode stuff since it will cause errors.
 
         Note that I wrote my `updateUI` function separately and passed its reference to `device.updateUI` in the `initConnection` function, since the reference can only be passed after
         `device` has been initialized as a `BMDevice` object.
@@ -271,11 +275,11 @@
         (a ? b : c)
         ```
 
-        And it works! We're able to remotely press record to start and stop the camera recording. It'll even work with a HyperDeck, too, since they use the same endpoints.
+        And it works! We're able to remotely press record to start and stop the camera recording. Even if the record button is physically pressed, we'll still see it update live on our site.
 
         ## Taking it Up a Notch
 
-        
+
 
         </md-block>
 

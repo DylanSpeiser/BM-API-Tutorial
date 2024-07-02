@@ -48,9 +48,10 @@
             }
 
             function parseTimecode(timecodeBCD) {
-                let decimalTCInt = parseInt(timecodeBCD.toString(16), 10);      // Convert the BCD number into base ten
-                let decimalTCString = decimalTCInt.toString().padStart(8, '0'); // Convert the base ten number to a string eight characters long
-                let finalTCString = decimalTCString.match(/.{1,2}/g).join(':'); // Put colons between every two characters
+                let noDropFrame = timecodeBCD & 0b01111111111111111111111111111111;     // The first bit of the timecode is 1 if "Drop Frame Timecode" is on. We don't want to include that in the display.
+                let decimalTCInt = parseInt(noDropFrame.toString(16), 10);              // Convert the BCD number into base ten
+                let decimalTCString = decimalTCInt.toString().padStart(8, '0');         // Convert the base ten number to a string eight characters long
+                let finalTCString = decimalTCString.match(/.{1,2}/g).join(':');         // Put colons between every two characters
                 return finalTCString;
             }
 
