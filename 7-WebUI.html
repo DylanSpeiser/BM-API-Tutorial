@@ -279,7 +279,138 @@
 
         ## Taking it Up a Notch
 
+        And now we have arrived at the reason I was able to make this tutorial in the first place: the pretty, user-friendly WebUI. You can see all of its code and try it for youself at its repository [here](https://github.com/DylanSpeiser/BM-Camera-Control-WebUI).
+        I wrote version 1.0 of this WebUI program before this tutorial series. After writing the tutorials and teaching myself how WebSockets work, I went back and redid all of the JavaScript for the app. 
+        The [BMDevice.js](https://github.com/DylanSpeiser/BM-Camera-Control-WebUI/blob/main/BMDevice.js) file it uses was built from the `BMDevice_WS.js` that we wrote in this series. I'd encourage you to take a look at it and use it in your own projects!
 
+        <div style="flex-direction: column;">
+            <img src="resources/images/7/WebUI1.png" alt="A screenshot of my WebUI" width="80%" style="max-width: 600px;">
+            <span>Screenshot of the WebUI I wrote</span>
+        </div>
+
+        If you've used ATEM Software Control before, you'll recognize the interface. I based the colors and controls of my WebUI off of ATEM Software Control, with slight modifications. I did recreate the entire UI from scratch, after all.
+
+        ### How I Did It
+
+        I'd like to point out some of the problems I solved while building this. Firstly, I wanted to check that the hostname entered by the user actually works
+        before creating the `BMCamera` object and sending it lots of API calls. So, I send one request to test the hostname, check the status code when it comes back, and if it was successful I
+        instantiate the object. I perform all of this in a function called `initCamera` that gets called when the user presses the "Connect" button:
+
+        ```JS
+        // web-ui.js, line 24
+
+        // Checks the hostname, if it replies successfully then a new BMCamera object
+        //  is made and gets put in the array at ind
+        function initCamera() {
+            // Get hostname from Hostname text field
+            let hostname = document.getElementById("hostnameInput").value;
+
+            try {
+                // Check if the hostname is valid
+                let response = sendRequest("GET", "http://"+hostname+"/control/api/v1/system","");
+
+                if (response.status < 300) {
+                    // Success, make a new camera, get all relevant info, and populate the UI
+                    cameras[ci] = new BMCamera(hostname);
+
+                    cameras[ci].updateUI = updateUIAll;
+
+                    cameras[ci].active = true;
+
+                    document.getElementById("connectionErrorSpan").innerHTML = "Connected.";
+                    document.getElementById("connectionErrorSpan").setAttribute("style","color: #6e6e6e;");
+                } else {
+                    // Something has gone wrong, tell the user
+                    document.getElementById("connectionErrorSpan").innerHTML = response.statusText;
+                }
+            } catch (error) {
+                // Something has gone wrong, tell the user
+                document.getElementById("connectionErrorSpan").title = error;
+                document.getElementById("connectionErrorSpan").innerHTML = "Error "+error.code+": "+error.name+" (Your hostname is probably incorrect, hover for more details)";
+            }
+
+        }
+        ```
+
+        Notice how right after the camera is instantiated, I pass my UI updating function `updateUIAll` to the new camera object. `updateUIAll` is a big function that sets the value
+        and innerHTML properties of all the relevant elements on the page, based on the data we've received from the camera and stored in our object in the `propertyData` field.
+
+        All of the data in `propertyData` is organized by endpoint and stored exactly how the camera sent it: as JSON objects. So, all I have to do to update the UI elements is access
+        the data I need and assign it to the right elements. Some of the lines in `updateUIAll` include:
+
+        ```JS
+        // web-ui.js, line 107:
+
+        document.getElementById("timecodeLabel").innerHTML = parseTimecode(cameras[ci].propertyData['/transports/0/timecode']?.timecode);
+        ```
+        
+        ```JS
+        // web-ui.js, lines 143-144:
+
+        document.getElementById("irisRange").value = cameras[ci].propertyData['/lens/iris']?.normalised;
+        document.getElementById("apertureStopsLabel").innerHTML = cameras[ci].propertyData['/lens/iris']?.apertureStop.toFixed(1);
+        ```
+
+        I use JavaScript's "optional chaining operator" (`?.`) a lot in this function. I use it to prevent getting errors when accessing fields that are undefined, which happens a lot
+        during the initial phase of connecting to the camera since we haven't gotten all of the data yet.
+
+        That is also why I added an `active` boolean field to the `BMDevice` class. If `active` is set to `false`, the `ws.onmessage` function will not call `updateUI`.
+       
+        ### Unadjustable
+
+        Once I had data streaming from the camera and populating the WebUI, I made some simple functions that handle input from the controls and send it to the camera with `PUTdata`.
+        For some elements, calling this function using the HTML `onchange` or `oninput` attribute worked fine, but many of the controls are `contenteditable` `&lt;span&gt;` elements.
+        Every time `updateUIAll` got called, it would overwrite any value I typed in before it could get sent to the camera.
+
+        My solution is to keep track of which properties the user has recently changed, and prevent `updateUIAll` from modifying the element's value until the new data has been sent to the camera.
+        For ISO, here's how that works:
+
+        ```HTML
+        // The ISO input text field in index.html
+
+        &lt;input type="number" id="ISOInput" step="100" onkeydown="ISOInputHandler()" onmousedown="unsavedChanges.push('ISO')"&gt;
+        ```
+
+        ```JS
+        // web-ui.js, line 482
+
+        function ISOInputHandler() {
+            let ISOInput = document.getElementById("ISOInput");
+        
+            if (event.key === 'Enter') {
+                event.preventDefault;
+                cameras[ci].PUTdata("/video/iso", {iso: parseInt(ISOInput.value)})
+                unsavedChanges = unsavedChanges.filter((e) => {return e !== "ISO"});
+            } else {
+                unsavedChanges.push('ISO');
+            }
+        }
+        ```
+
+        ```JS
+        // web-ui.js, line 156, in updateUIAll()
+
+        if (!unsavedChanges.includes("ISO")) {
+            if (cameras[ci].propertyData['/video/iso'])
+                document.getElementById("ISOInput").value = cameras[ci].propertyData['/video/iso']?.iso;
+        }
+        ```
+
+        When the user clicks the field with the mouse, or presses any key other than Enter into the text field, the string `"ISO"` is added to the `unsavedChanges` array.
+        If the Enter key has been pressed, the `PUTdata` command is sent and all instances of `"ISO"` are removed from `unsavedChanges`.
+        `updateUIAll` checks to see if `unsavedChanges` contains any `"ISO"` elements before updating the element's value.
+
+        This dance with `unsavedChanges` happens for many properties and elements, but they all work the same way. Thanks to this solution, the text fields work great. They update
+        when something changes on the camera, while allowing the user to type in a new value without being interrupted.
+
+        ## Closing Remarks
+
+        I'll probably add more functionality to this WebUI in the future, but for now I'm very happy with how it turned out.
+
+        We have now arrived at the end of this tutorial series. I hope it was fun and useful to you. Please let me know in the Issues section of the GitHub repository if something
+        needs updating or clarifying.
+
+        Happy coding! - Dylan
 
         </md-block>
 
