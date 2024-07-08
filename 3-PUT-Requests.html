@@ -135,7 +135,7 @@
         ## ISO
 
         So we've gotten the camera to auto focus, but what about a PUT request that has some data, like changing the ISO? Consulting the documentation, we can see that a
-        `PUT /video/iso` API call will have one integer parameter named `'iso'`. Here's how we can send a command to change the ISO in both JS and Python using our sendPUTRequest functions:
+        `PUT /video/iso` API call will have one integer parameter named `'iso'`. Here's how we can send a command to change the ISO in JS using our sendPUTRequest functions:
 
         ```JavaScript
         sendPUTRequest("/video/iso", "{\"iso\": 1600}");                // Set the ISO to 1600
@@ -145,6 +145,8 @@
         > (XMLHttpRequest.send(data) takes the JSON data as a string, and the way we wrote our sendPUTRequest function does not convert the argument to a string automatically.
         That is why we must either use `\"` to add quotes within a string we pass to the function or call `JSON.stringify()`)
 
+        And, in Python:
+        
         ```Python
         sendPUTRequest("/video/iso", {'iso': 3200})                     # Set the ISO to 3200
         ```

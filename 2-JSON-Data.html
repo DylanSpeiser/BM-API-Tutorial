@@ -90,7 +90,7 @@
         </div>
 
         That's all well and good, but we can only access the request response data inside of the anonymous function. XMLHttpRequests happen asynchronously,
-        meaning that the code won't have the response to the request right after we call `xhr.send()`. `xhr.onload` gets called when this response _is_ available,
+        meaning that the code won't have the response to the request right after we call `xhr.send()`. The function we pass to `xhr.onload` gets called when this response _is_ available,
         so we must get the data from the response text and save it in some way for other parts of a program to use.
 
         Our `xhr.onload` function should also have some kind of error handling, so here is a function that handles all of these steps plus a better `xhr.onload`:

@@ -69,9 +69,9 @@
 
         ## SMB
 
-        For even more file-transfer and file-organizing power, we can access a Camera's contents over SMB (HyperDecks do not support SMB).
+        For even more file-transfer and file-organizing power, we can access a Camera's contents over SMB (HyperDecks do not support SMB as of July 2024).
         SMB is Windows's native network file sharing protocol, and it is supported by Linux and macOS as well. To connect to
-        a Blackmagic device over SMB, follow [instructions for connecting to an SMB server](https://knowledgebase.45drives.com/kb/kb450446-connecting-to-smb-share-on-windows-and-macos/).
+        a Blackmagic device over SMB, connect to it the same way you would any other network-attached-storage. (If you need, [here are instructions for connecting to an SMB server](https://knowledgebase.45drives.com/kb/kb450446-connecting-to-smb-share-on-windows-and-macos/).)
         The devices might even show up in File Explorer or Finder automatically, making the process even easier.
 
         If prompted for a login, just connect as a guest. You can configure the security and login information in **Blackmagic Camera Setup**.
@@ -125,7 +125,7 @@
         HD.PUTdata("/transports/0/playback",{loop: true, singleClip: true, speed: 1});
         ```
 
-        Want to loop backwards through the whole timeline?
+        Want to loop backwards through the whole timeline at half speed?
 
         ```JS
         HD.PUTdata("/transports/0/playback",{loop: true, singleClip: true, speed:-0.5});
